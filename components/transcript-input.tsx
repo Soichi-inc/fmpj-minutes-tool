@@ -5,23 +5,28 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { ArrowRight } from "lucide-react";
+import { FormatTemplate, DEFAULT_MEETING_TYPES } from "@/lib/store/types";
 
 interface MeetingInfo {
   meetingName: string;
+  meetingType: string;
   date: string;
   location: string;
   attendees: string;
   transcript: string;
+  templateId: string;
 }
 
 interface TranscriptInputProps {
   meetingInfo: MeetingInfo;
+  templates: FormatTemplate[];
   onChange: (info: MeetingInfo) => void;
   onNext: () => void;
 }
 
 export function TranscriptInput({
   meetingInfo,
+  templates,
   onChange,
   onNext,
 }: TranscriptInputProps) {
@@ -35,7 +40,7 @@ export function TranscriptInput({
 
   return (
     <div className="space-y-6">
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-3 gap-4">
         <div className="space-y-2">
           <Label htmlFor="meetingName">
             会議名 <span className="text-destructive">*</span>
@@ -48,6 +53,22 @@ export function TranscriptInput({
           />
         </div>
         <div className="space-y-2">
+          <Label htmlFor="meetingType">会議種別</Label>
+          <select
+            id="meetingType"
+            value={meetingInfo.meetingType}
+            onChange={(e) => update("meetingType", e.target.value)}
+            className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-xs transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+          >
+            <option value="">選択してください</option>
+            {DEFAULT_MEETING_TYPES.map((type) => (
+              <option key={type} value={type}>
+                {type}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div className="space-y-2">
           <Label htmlFor="date">開催日</Label>
           <Input
             id="date"
@@ -58,7 +79,7 @@ export function TranscriptInput({
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-3 gap-4">
         <div className="space-y-2">
           <Label htmlFor="location">開催場所</Label>
           <Input
@@ -77,6 +98,27 @@ export function TranscriptInput({
             placeholder={"山田太郎\n佐藤花子\n田中一郎"}
             rows={3}
           />
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="templateId">フォーマットテンプレート</Label>
+          <select
+            id="templateId"
+            value={meetingInfo.templateId}
+            onChange={(e) => update("templateId", e.target.value)}
+            className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-xs transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+          >
+            <option value="">デフォルト（FMPJ標準）</option>
+            {templates.map((t) => (
+              <option key={t.id} value={t.id}>
+                {t.name}
+              </option>
+            ))}
+          </select>
+          {templates.length === 0 && (
+            <p className="text-xs text-muted-foreground">
+              フォーマット設定からテンプレートを追加できます
+            </p>
+          )}
         </div>
       </div>
 

@@ -15,8 +15,15 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const { transcript, meetingName, date, location, attendees } =
-      await request.json();
+    const {
+      transcript,
+      meetingName,
+      date,
+      location,
+      attendees,
+      customFormatInstructions,
+      sampleOutput,
+    } = await request.json();
 
     if (!transcript) {
       return new Response(
@@ -30,6 +37,8 @@ export async function POST(request: NextRequest) {
       date: date || "未指定",
       location: location || "未指定",
       attendees: attendees || [],
+      customFormatInstructions: customFormatInstructions || undefined,
+      sampleOutput: sampleOutput || undefined,
     });
 
     const client = getAnthropicClient();

@@ -3,12 +3,14 @@ export interface MinutesContext {
   date: string;
   location: string;
   attendees: string[];
+  customFormatInstructions?: string;
+  sampleOutput?: string;
 }
 
 export function getSystemPrompt(context: MinutesContext): string {
   const attendeesList = context.attendees.join("、");
 
-  return `あなたはFMPJ（一般社団法人 日本音楽制作者連盟）の公式議事録を作成する専門アシスタントです。
+  const basePrompt = `あなたはFMPJ（一般社団法人 日本音楽制作者連盟）の公式議事録を作成する専門アシスタントです。
 
 ## 出力フォーマット
 以下のフォーマットに厳密に従って議事録を作成してください。
@@ -48,4 +50,17 @@ export function getSystemPrompt(context: MinutesContext): string {
 - 文字起こしデータに含まれる情報のみを使用し、推測で内容を追加しないこと
 - 発言の意図が不明確な場合は、原文に近い形で記載すること
 - 数字や固有名詞は特に注意して正確に記載すること`;
+
+  // Append custom format instructions if provided
+  let prompt = basePrompt;
+
+  if (context.customFormatInstructions) {
+    prompt += `\n\n## 追加フォーマット指示\n以下の追加指示にも従ってください:\n\n${context.customFormatInstructions}`;
+  }
+
+  if (context.sampleOutput) {
+    prompt += `\n\n## 参考: 過去の議事録サンプル\n以下は過去の議事録の一例です。文体・構成を参考にしてください:\n\n${context.sampleOutput}`;
+  }
+
+  return prompt;
 }

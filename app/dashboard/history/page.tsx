@@ -1,0 +1,233 @@
+"use client";
+
+import { useState, useEffect, useMemo } from "react";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Separator } from "@/components/ui/separator";
+import {
+  getMinutesRecords,
+  deleteMinutesRecord,
+} from "@/lib/store/storage";
+import { MinutesRecord, DEFAULT_MEETING_TYPES } from "@/lib/store/types";
+import {
+  Trash2,
+  Copy,
+  Download,
+  Check,
+  ChevronDown,
+  ChevronUp,
+  Search,
+} from "lucide-react";
+import { Input } from "@/components/ui/input";
+
+export default function HistoryPage() {
+  const [records, setRecords] = useState<MinutesRecord[]>([]);
+  const [filterType, setFilterType] = useState<string>("");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [copiedId, setCopiedId] = useState<string | null>(null);
+
+  useEffect(() => {
+    setRecords(getMinutesRecords());
+  }, []);
+
+  const meetingTypes = useMemo(() => {
+    const types = new Set(records.map((r) => r.meetingType));
+    return Array.from(types).sort();
+  }, [records]);
+
+  const filtered = useMemo(() => {
+    return records.filter((r) => {
+      if (filterType && r.meetingType !== filterType) return false;
+      if (searchQuery) {
+        const q = searchQuery.toLowerCase();
+        return (
+          r.meetingName.toLowerCase().includes(q) ||
+          r.content.toLowerCase().includes(q) ||
+          r.attendees.some((a) => a.toLowerCase().includes(q))
+        );
+      }
+      return true;
+    });
+  }, [records, filterType, searchQuery]);
+
+  const handleDelete = (id: string) => {
+    if (!confirm("この議事録を削除しますか？")) return;
+    deleteMinutesRecord(id);
+    setRecords(getMinutesRecords());
+    if (expandedId === id) setExpandedId(null);
+  };
+
+  const handleCopy = async (content: string, id: string) => {
+    await navigator.clipboard.writeText(content);
+    setCopiedId(id);
+    setTimeout(() => setCopiedId(null), 2000);
+  };
+
+  const handleDownload = (record: MinutesRecord) => {
+    const blob = new Blob([record.content], {
+      type: "text/markdown;charset=utf-8",
+    });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${record.meetingName}_${record.date}.md`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
+  return (
+    <div className="max-w-6xl mx-auto px-6 py-6">
+      <div className="mb-6">
+        <h2 className="text-xl font-semibold">過去の議事録</h2>
+        <p className="text-sm text-muted-foreground mt-1">
+          生成した議事録の一覧です。ブラウザのローカルストレージに保存されています。
+        </p>
+      </div>
+
+      {/* Filters */}
+      <div className="flex gap-3 mb-6">
+        <div className="relative flex-1 max-w-sm">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="会議名・内容・出席者で検索..."
+            className="pl-10"
+          />
+        </div>
+        <div className="flex gap-1">
+          <Button
+            variant={filterType === "" ? "default" : "outline"}
+            size="sm"
+            onClick={() => setFilterType("")}
+          >
+            すべて
+          </Button>
+          {(meetingTypes.length > 0 ? meetingTypes : DEFAULT_MEETING_TYPES.slice(0, 4)).map(
+            (type) => (
+              <Button
+                key={type}
+                variant={filterType === type ? "default" : "outline"}
+                size="sm"
+                onClick={() =>
+                  setFilterType(filterType === type ? "" : type)
+                }
+              >
+                {type}
+              </Button>
+            )
+          )}
+        </div>
+      </div>
+
+      {/* Records list */}
+      {filtered.length === 0 ? (
+        <Card>
+          <CardContent className="py-12 text-center">
+            <p className="text-muted-foreground">
+              {records.length === 0
+                ? "まだ議事録が生成されていません"
+                : "条件に一致する議事録がありません"}
+            </p>
+          </CardContent>
+        </Card>
+      ) : (
+        <div className="space-y-3">
+          {filtered.map((record) => {
+            const isExpanded = expandedId === record.id;
+            return (
+              <Card key={record.id}>
+                <CardContent className="py-4">
+                  {/* Summary row */}
+                  <div
+                    className="flex items-center justify-between cursor-pointer"
+                    onClick={() =>
+                      setExpandedId(isExpanded ? null : record.id)
+                    }
+                  >
+                    <div className="flex items-center gap-3">
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <span className="font-medium">
+                            {record.meetingName}
+                          </span>
+                          <Badge variant="secondary" className="text-xs">
+                            {record.meetingType}
+                          </Badge>
+                        </div>
+                        <div className="flex gap-3 text-xs text-muted-foreground mt-1">
+                          <span>{record.date}</span>
+                          {record.location && <span>{record.location}</span>}
+                          <span>出席者: {record.attendees.length}名</span>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleCopy(record.content, record.id);
+                        }}
+                      >
+                        {copiedId === record.id ? (
+                          <Check className="h-4 w-4" />
+                        ) : (
+                          <Copy className="h-4 w-4" />
+                        )}
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleDownload(record);
+                        }}
+                      >
+                        <Download className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleDelete(record.id);
+                        }}
+                      >
+                        <Trash2 className="h-4 w-4 text-destructive" />
+                      </Button>
+                      {isExpanded ? (
+                        <ChevronUp className="h-4 w-4 text-muted-foreground" />
+                      ) : (
+                        <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Expanded content */}
+                  {isExpanded && (
+                    <>
+                      <Separator className="my-4" />
+                      <div className="prose prose-sm max-w-none prose-headings:text-foreground prose-p:text-foreground prose-li:text-foreground prose-strong:text-foreground prose-td:text-foreground prose-th:text-foreground">
+                        <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                          {record.content}
+                        </ReactMarkdown>
+                      </div>
+                    </>
+                  )}
+                </CardContent>
+              </Card>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
