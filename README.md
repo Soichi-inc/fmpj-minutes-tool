@@ -1,36 +1,57 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# FMPJ 議事録自動生成ツール
 
-## Getting Started
+FMPJ（一般社団法人 日本音楽制作者連盟）専用の議事録自動生成Webアプリケーション。
 
-First, run the development server:
+## 機能
+
+- PLAUD等の文字起こしデータから議事録を自動生成
+- 対話的な話者特定フロー（Speaker 1 → 実名への変換）
+- FMPJフォーマットに完全準拠した出力
+- ToDoリストの自動抽出
+- ストリーミング表示（生成過程をリアルタイム確認）
+- ゼロデータ保持（サーバーにデータを保存しない）
+
+## セットアップ
+
+### 環境変数
+
+`.env.example` を `.env.local` にコピーし、値を設定:
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+cp .env.example .env.local
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+| 変数名 | 説明 | 必須 |
+|--------|------|------|
+| `ANTHROPIC_API_KEY` | Anthropic Claude API キー | Yes |
+| `APP_PASSWORD` | アクセス用パスワード | Yes |
+| `NEXT_PUBLIC_APP_NAME` | アプリ名（デフォルト: "FMPJ議事録ツール"） | No |
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+### 開発サーバー
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```bash
+npm install
+npm run dev
+```
 
-## Learn More
+http://localhost:3000 にアクセスし、`APP_PASSWORD` に設定したパスワードでログイン。
 
-To learn more about Next.js, take a look at the following resources:
+### デプロイ
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+Vercelにプッシュ時に自動デプロイ。環境変数はVercelダッシュボードで設定してください。
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## 使い方
 
-## Deploy on Vercel
+1. **ログイン** - パスワードを入力
+2. **会議情報入力** - 会議名、日時、場所、出席者、文字起こしデータを入力
+3. **話者特定** - 「Speaker 1」等を実名に割り当て
+4. **生成** - Claude AIが議事録を自動生成
+5. **結果確認** - 議事録とToDoリストを確認、コピー・ダウンロード
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## 技術スタック
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- Next.js 16 (App Router)
+- TypeScript
+- Tailwind CSS / shadcn/ui
+- Anthropic Claude API (claude-sonnet-4-20250514)
+- Vercel
