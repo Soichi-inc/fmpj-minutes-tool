@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, ArrowRight, Users } from "lucide-react";
+import { ArrowLeft, ArrowRight, Users, X } from "lucide-react";
 import {
   DetectedSpeaker,
   detectSpeakers,
@@ -15,7 +15,10 @@ interface SpeakerMappingProps {
   transcript: string;
   attendees: string[];
   onBack: () => void;
-  onConfirm: (mapping: Record<string, string>) => void;
+  onConfirm: (
+    mapping: Record<string, string>,
+    excludedLabels: string[]
+  ) => void;
 }
 
 export function SpeakerMapping({
@@ -26,6 +29,7 @@ export function SpeakerMapping({
 }: SpeakerMappingProps) {
   const speakers = useMemo(() => detectSpeakers(transcript), [transcript]);
   const [mapping, setMapping] = useState<Record<string, string>>({});
+  const [excluded, setExcluded] = useState<Record<string, boolean>>({});
 
   // Initialize mapping with empty values
   useEffect(() => {
@@ -34,18 +38,33 @@ export function SpeakerMapping({
       initial[speaker.label] = "";
     }
     setMapping(initial);
+    setExcluded({});
   }, [speakers]);
 
   const updateMapping = (speakerLabel: string, name: string) => {
     setMapping((prev) => ({ ...prev, [speakerLabel]: name }));
   };
 
+  const toggleExclude = (speakerLabel: string) => {
+    setExcluded((prev) => ({
+      ...prev,
+      [speakerLabel]: !prev[speakerLabel],
+    }));
+  };
+
+  // Only require names for non-excluded speakers
   const allMapped = speakers.every(
-    (s) => mapping[s.label]?.trim().length > 0
+    (s) => excluded[s.label] || mapping[s.label]?.trim().length > 0
   );
 
+  const activeSpeakers = speakers.filter((s) => !excluded[s.label]);
+  const excludedSpeakers = speakers.filter((s) => excluded[s.label]);
+
   const handleConfirm = () => {
-    onConfirm(mapping);
+    const excludedLabels = speakers
+      .filter((s) => excluded[s.label])
+      .map((s) => s.label);
+    onConfirm(mapping, excludedLabels);
   };
 
   if (speakers.length === 0) {
@@ -67,7 +86,7 @@ export function SpeakerMapping({
             <ArrowLeft className="mr-2 h-4 w-4" />
             戻る
           </Button>
-          <Button onClick={() => onConfirm({})}>
+          <Button onClick={() => onConfirm({}, [])}>
             議事録を生成する
             <ArrowRight className="ml-2 h-4 w-4" />
           </Button>
@@ -105,9 +124,20 @@ export function SpeakerMapping({
             value={mapping[speaker.label] || ""}
             onChange={(name) => updateMapping(speaker.label, name)}
             attendees={attendees}
+            isExcluded={!!excluded[speaker.label]}
+            onToggleExclude={() => toggleExclude(speaker.label)}
           />
         ))}
       </div>
+
+      {excludedSpeakers.length > 0 && (
+        <div className="text-sm text-muted-foreground bg-muted/50 rounded-lg p-3">
+          <span className="font-medium">除外中:</span>{" "}
+          {excludedSpeakers.map((s) => s.label).join("、")}
+          （{excludedSpeakers.reduce((sum, s) => sum + s.count, 0)}
+          件の発言が除外されます）
+        </div>
+      )}
 
       <div className="flex justify-between">
         <Button variant="outline" onClick={onBack}>
@@ -128,11 +158,15 @@ function SpeakerRow({
   value,
   onChange,
   attendees,
+  isExcluded,
+  onToggleExclude,
 }: {
   speaker: DetectedSpeaker;
   value: string;
   onChange: (name: string) => void;
   attendees: string[];
+  isExcluded: boolean;
+  onToggleExclude: () => void;
 }) {
   const [showSuggestions, setShowSuggestions] = useState(false);
   const filtered = attendees.filter(
@@ -140,42 +174,75 @@ function SpeakerRow({
   );
 
   return (
-    <div className="flex items-center gap-4 p-3 rounded-lg border bg-card">
+    <div
+      className={`flex items-center gap-4 p-3 rounded-lg border transition-colors ${
+        isExcluded
+          ? "bg-muted/50 border-dashed opacity-60"
+          : "bg-card"
+      }`}
+    >
       <div className="min-w-[140px]">
-        <span className="font-medium">{speaker.label}</span>
+        <span className={`font-medium ${isExcluded ? "line-through" : ""}`}>
+          {speaker.label}
+        </span>
         <span className="text-xs text-muted-foreground ml-2">
           ({speaker.count}回発言)
         </span>
       </div>
-      <div className="flex-1 relative">
-        <Input
-          value={value}
-          onChange={(e) => {
-            onChange(e.target.value);
-            setShowSuggestions(true);
-          }}
-          onFocus={() => setShowSuggestions(true)}
-          onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
-          placeholder="実名を入力..."
-        />
-        {showSuggestions && filtered.length > 0 && value && (
-          <div className="absolute z-10 top-full left-0 right-0 mt-1 bg-popover border rounded-md shadow-md">
-            {filtered.map((name) => (
-              <button
-                key={name}
-                className="w-full text-left px-3 py-2 text-sm hover:bg-accent"
-                onMouseDown={(e) => {
-                  e.preventDefault();
-                  onChange(name);
-                  setShowSuggestions(false);
-                }}
-              >
-                {name}
-              </button>
-            ))}
-          </div>
+
+      {isExcluded ? (
+        <div className="flex-1 text-sm text-muted-foreground italic">
+          この話者の発言は議事録から除外されます
+        </div>
+      ) : (
+        <div className="flex-1 relative">
+          <Input
+            value={value}
+            onChange={(e) => {
+              onChange(e.target.value);
+              setShowSuggestions(true);
+            }}
+            onFocus={() => setShowSuggestions(true)}
+            onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
+            placeholder="実名を入力..."
+          />
+          {showSuggestions && filtered.length > 0 && value && (
+            <div className="absolute z-10 top-full left-0 right-0 mt-1 bg-popover border rounded-md shadow-md">
+              {filtered.map((name) => (
+                <button
+                  key={name}
+                  className="w-full text-left px-3 py-2 text-sm hover:bg-accent"
+                  onMouseDown={(e) => {
+                    e.preventDefault();
+                    onChange(name);
+                    setShowSuggestions(false);
+                  }}
+                >
+                  {name}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      <button
+        type="button"
+        onClick={onToggleExclude}
+        className={`shrink-0 px-3 py-1.5 rounded-md text-xs font-medium border transition-colors ${
+          isExcluded
+            ? "bg-primary text-primary-foreground border-primary hover:bg-primary/90"
+            : "bg-white text-muted-foreground border-gray-300 hover:border-destructive hover:text-destructive"
+        }`}
+        title={isExcluded ? "除外を解除" : "この話者を除外"}
+      >
+        {isExcluded ? "除外を解除" : (
+          <>
+            <X className="inline h-3 w-3 mr-1" />
+            除外
+          </>
         )}
-      </div>
+      </button>
     </div>
   );
 }

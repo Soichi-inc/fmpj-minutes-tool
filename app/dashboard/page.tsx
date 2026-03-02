@@ -5,7 +5,10 @@ import { Button } from "@/components/ui/button";
 import { TranscriptInput } from "@/components/transcript-input";
 import { SpeakerMapping } from "@/components/speaker-mapping";
 import { MinutesViewer } from "@/components/minutes-viewer";
-import { replaceSpeakers } from "@/lib/utils/speaker-detector";
+import {
+  replaceSpeakers,
+  filterExcludedSpeakers,
+} from "@/lib/utils/speaker-detector";
 import { parseTranscript } from "@/lib/utils/transcript-parser";
 import { getTemplates, saveMinutesRecord } from "@/lib/store/storage";
 import { FormatTemplate } from "@/lib/store/types";
@@ -21,6 +24,7 @@ export interface MeetingInfo {
   attendees: string;
   transcript: string;
   templateId: string;
+  selectedReferenceIds: string[];
 }
 
 const STEP_LABELS = ["会議情報入力", "話者特定", "生成中", "結果表示"];
@@ -36,6 +40,7 @@ export default function DashboardPage() {
     attendees: "",
     transcript: "",
     templateId: "",
+    selectedReferenceIds: [],
   });
   const [generatedContent, setGeneratedContent] = useState("");
   const [streamingContent, setStreamingContent] = useState("");
@@ -65,18 +70,42 @@ export default function DashboardPage() {
       abortControllerRef.current = controller;
 
       try {
+        // Fetch reference texts if any are selected
+        let referenceTexts: { fileName: string; text: string }[] | undefined;
+        if (meetingInfo.selectedReferenceIds.length > 0) {
+          const refResults = await Promise.allSettled(
+            meetingInfo.selectedReferenceIds.map(async (id) => {
+              const res = await fetch(`/api/reference/${id}`);
+              if (!res.ok) return null;
+              const data = await res.json();
+              return { fileName: data.fileName, text: data.text };
+            })
+          );
+          referenceTexts = refResults
+            .filter(
+              (r): r is PromiseFulfilledResult<{ fileName: string; text: string } | null> =>
+                r.status === "fulfilled"
+            )
+            .map((r) => r.value)
+            .filter(Boolean) as { fileName: string; text: string }[];
+        }
+
         const res = await fetch("/api/generate", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             transcript: processedTranscript,
-            meetingName: meetingInfo.meetingName,
+            meetingName: [meetingInfo.meetingName, meetingInfo.meetingType]
+              .filter(Boolean)
+              .join(" "),
+            meetingType: meetingInfo.meetingType,
             date: meetingInfo.date,
             location: meetingInfo.location,
             attendees: attendeesList,
             customFormatInstructions:
               selectedTemplate?.formatInstructions || "",
             sampleOutput: selectedTemplate?.sampleOutput || "",
+            referenceTexts,
           }),
           signal: controller.signal,
         });
@@ -175,8 +204,18 @@ export default function DashboardPage() {
     [meetingInfo, attendeesList, selectedTemplate, streamingContent]
   );
 
-  const handleSpeakerConfirm = (mapping: Record<string, string>) => {
-    const cleaned = parseTranscript(meetingInfo.transcript);
+  const handleSpeakerConfirm = (
+    mapping: Record<string, string>,
+    excludedLabels: string[]
+  ) => {
+    let cleaned = parseTranscript(meetingInfo.transcript);
+
+    // Filter out excluded speakers first
+    if (excludedLabels.length > 0) {
+      cleaned = filterExcludedSpeakers(cleaned, excludedLabels);
+    }
+
+    // Then replace remaining speaker labels with real names
     const processed =
       Object.keys(mapping).length > 0
         ? replaceSpeakers(cleaned, mapping)
@@ -198,6 +237,7 @@ export default function DashboardPage() {
       attendees: "",
       transcript: "",
       templateId: "",
+      selectedReferenceIds: [],
     });
     setGeneratedContent("");
     setStreamingContent("");

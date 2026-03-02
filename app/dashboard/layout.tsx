@@ -2,10 +2,17 @@
 
 import { useRouter, usePathname } from "next/navigation";
 import { Button } from "@/components/ui/button";
-import { LogOut, FileText, LayoutDashboard, Settings } from "lucide-react";
+import {
+  LogOut,
+  FileText,
+  LayoutDashboard,
+  Settings,
+  FolderOpen,
+} from "lucide-react";
 
 const NAV_ITEMS = [
   { href: "/dashboard", label: "議事録作成", icon: FileText },
+  { href: "/dashboard/reference", label: "参考資料", icon: FolderOpen },
   { href: "/dashboard/history", label: "過去の議事録", icon: LayoutDashboard },
   { href: "/dashboard/templates", label: "フォーマット設定", icon: Settings },
 ];

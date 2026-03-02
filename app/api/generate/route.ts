@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { cookies } from "next/headers";
 import { getAnthropicClient } from "@/lib/anthropic";
-import { getSystemPrompt } from "@/lib/prompts/system-prompt";
+import { getSystemPrompt, buildUserMessage } from "@/lib/prompts/system-prompt";
 
 export async function POST(request: NextRequest) {
   // Auth check
@@ -18,11 +18,13 @@ export async function POST(request: NextRequest) {
     const {
       transcript,
       meetingName,
+      meetingType,
       date,
       location,
       attendees,
       customFormatInstructions,
       sampleOutput,
+      referenceTexts,
     } = await request.json();
 
     if (!transcript) {
@@ -34,12 +36,15 @@ export async function POST(request: NextRequest) {
 
     const systemPrompt = getSystemPrompt({
       meetingName: meetingName || "会議",
+      meetingType: meetingType || "",
       date: date || "未指定",
       location: location || "未指定",
       attendees: attendees || [],
       customFormatInstructions: customFormatInstructions || undefined,
       sampleOutput: sampleOutput || undefined,
     });
+
+    const userMessage = buildUserMessage(transcript, referenceTexts);
 
     const client = getAnthropicClient();
 
@@ -50,7 +55,7 @@ export async function POST(request: NextRequest) {
       messages: [
         {
           role: "user",
-          content: `以下の文字起こしデータから、指定されたフォーマットに従って議事録を作成してください。\n\n---\n\n${transcript}`,
+          content: userMessage,
         },
       ],
     });

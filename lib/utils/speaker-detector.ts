@@ -44,6 +44,46 @@ export function detectSpeakers(transcript: string): DetectedSpeaker[] {
 }
 
 /**
+ * Filter out transcript blocks belonging to excluded speakers.
+ * Removes the speaker label line and all subsequent lines
+ * until the next speaker label is encountered.
+ */
+export function filterExcludedSpeakers(
+  transcript: string,
+  excludedLabels: string[]
+): string {
+  if (excludedLabels.length === 0) return transcript;
+
+  const lines = transcript.split("\n");
+  const result: string[] = [];
+  let excluding = false;
+
+  for (const line of lines) {
+    const trimmed = line.trim();
+
+    // Check if this line starts with a speaker label
+    const match = trimmed.match(/^(Speaker\s*\d+|話者\s*\d+)/i);
+
+    if (match) {
+      // Normalize the label the same way detectSpeakers does
+      const raw = match[1].replace(/\s+/g, " ").trim();
+      const normalizedLabel = raw.replace(/^(speaker|話者)\s*/i, (m) => {
+        return m.charAt(0).toUpperCase() + m.slice(1).toLowerCase();
+      });
+
+      excluding = excludedLabels.includes(normalizedLabel);
+    }
+
+    if (!excluding) {
+      result.push(line);
+    }
+  }
+
+  // Clean up excessive blank lines left by filtering
+  return result.join("\n").replace(/\n{3,}/g, "\n\n");
+}
+
+/**
  * Replace speaker labels with real names in transcript text.
  */
 export function replaceSpeakers(

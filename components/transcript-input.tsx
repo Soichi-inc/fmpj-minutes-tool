@@ -5,7 +5,9 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { ArrowRight } from "lucide-react";
-import { FormatTemplate, DEFAULT_MEETING_TYPES } from "@/lib/store/types";
+import { FormatTemplate } from "@/lib/store/types";
+import { MeetingTypeSelector } from "@/components/meeting-type-selector";
+import { ReferenceSelector } from "@/components/reference-selector";
 
 interface MeetingInfo {
   meetingName: string;
@@ -15,6 +17,7 @@ interface MeetingInfo {
   attendees: string;
   transcript: string;
   templateId: string;
+  selectedReferenceIds: string[];
 }
 
 interface TranscriptInputProps {
@@ -36,38 +39,33 @@ export function TranscriptInput({
 
   const canProceed =
     meetingInfo.transcript.trim().length > 0 &&
-    meetingInfo.meetingName.trim().length > 0;
+    meetingInfo.meetingType.trim().length > 0;
 
   return (
     <div className="space-y-6">
-      <div className="grid grid-cols-3 gap-4">
+      {/* Row 1: Meeting type + supplementary name */}
+      <div className="grid grid-cols-2 gap-4">
+        <MeetingTypeSelector
+          value={meetingInfo.meetingType}
+          onChange={(v) => update("meetingType", v)}
+        />
         <div className="space-y-2">
-          <Label htmlFor="meetingName">
-            会議名 <span className="text-destructive">*</span>
-          </Label>
+          <Label htmlFor="meetingName">会議名（補足）</Label>
           <Input
             id="meetingName"
             value={meetingInfo.meetingName}
             onChange={(e) => update("meetingName", e.target.value)}
-            placeholder="例: 第○回理事会"
+            placeholder="例: 第10回、2026年3月度"
           />
+          <p className="text-xs text-muted-foreground">
+            ヘッダー例: 「{meetingInfo.meetingName || "3月度"}{" "}
+            {meetingInfo.meetingType || "理事会"} 議事録」
+          </p>
         </div>
-        <div className="space-y-2">
-          <Label htmlFor="meetingType">会議種別</Label>
-          <select
-            id="meetingType"
-            value={meetingInfo.meetingType}
-            onChange={(e) => update("meetingType", e.target.value)}
-            className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-xs transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-          >
-            <option value="">選択してください</option>
-            {DEFAULT_MEETING_TYPES.map((type) => (
-              <option key={type} value={type}>
-                {type}
-              </option>
-            ))}
-          </select>
-        </div>
+      </div>
+
+      {/* Row 2: Date, Location, Template */}
+      <div className="grid grid-cols-3 gap-4">
         <div className="space-y-2">
           <Label htmlFor="date">開催日</Label>
           <Input
@@ -77,9 +75,6 @@ export function TranscriptInput({
             onChange={(e) => update("date", e.target.value)}
           />
         </div>
-      </div>
-
-      <div className="grid grid-cols-3 gap-4">
         <div className="space-y-2">
           <Label htmlFor="location">開催場所</Label>
           <Input
@@ -87,16 +82,6 @@ export function TranscriptInput({
             value={meetingInfo.location}
             onChange={(e) => update("location", e.target.value)}
             placeholder="例: 連盟会議室"
-          />
-        </div>
-        <div className="space-y-2">
-          <Label htmlFor="attendees">出席者（改行区切り）</Label>
-          <Textarea
-            id="attendees"
-            value={meetingInfo.attendees}
-            onChange={(e) => update("attendees", e.target.value)}
-            placeholder={"山田太郎\n佐藤花子\n田中一郎"}
-            rows={3}
           />
         </div>
         <div className="space-y-2">
@@ -114,14 +99,30 @@ export function TranscriptInput({
               </option>
             ))}
           </select>
-          {templates.length === 0 && (
-            <p className="text-xs text-muted-foreground">
-              フォーマット設定からテンプレートを追加できます
-            </p>
-          )}
         </div>
       </div>
 
+      {/* Attendees */}
+      <div className="space-y-2">
+        <Label htmlFor="attendees">出席者（改行区切り）</Label>
+        <Textarea
+          id="attendees"
+          value={meetingInfo.attendees}
+          onChange={(e) => update("attendees", e.target.value)}
+          placeholder={"山田太郎\n佐藤花子\n田中一郎"}
+          rows={3}
+        />
+      </div>
+
+      {/* Reference materials */}
+      <ReferenceSelector
+        selectedIds={meetingInfo.selectedReferenceIds}
+        onChange={(ids) =>
+          onChange({ ...meetingInfo, selectedReferenceIds: ids })
+        }
+      />
+
+      {/* Transcript */}
       <div className="space-y-2">
         <Label htmlFor="transcript">
           文字起こしデータ <span className="text-destructive">*</span>
@@ -136,7 +137,6 @@ export function TranscriptInput({
         />
         <p className="text-xs text-muted-foreground">
           PLAUD等のAIボイスレコーダーから出力された文字起こしテキストを貼り付けてください。
-          タイムスタンプ付き・なし両方に対応しています。
         </p>
       </div>
 
