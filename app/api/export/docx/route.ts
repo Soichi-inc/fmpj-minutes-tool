@@ -27,44 +27,109 @@ export async function POST(request: NextRequest) {
       breaks: true,
     });
 
-    // Styled HTML for Word
+    // Styled HTML matching FMPJ official minutes format
+    // Font: MS 明朝, Size: 10.5pt, Line-height: ~1.5, Page numbers: - N -
     const fullHtml = `
-      <html>
+      <html xmlns:o="urn:schemas-microsoft-com:office:office"
+            xmlns:w="urn:schemas-microsoft-com:office:word"
+            xmlns="http://www.w3.org/TR/REC-html40">
         <head>
           <meta charset="utf-8">
           <style>
+            @page {
+              size: A4;
+              margin: 25mm 25mm 25mm 25mm;
+              mso-header-margin: 10mm;
+              mso-footer-margin: 10mm;
+              mso-page-numbers: 1;
+            }
+            @page Section1 {
+              mso-footer: f1;
+            }
+            div.Section1 { page: Section1; }
+            table#footer-table {
+              border: none;
+              margin: 0;
+            }
+            table#footer-table td {
+              border: none;
+              text-align: center;
+              font-size: 9pt;
+              padding: 0;
+            }
             body {
-              font-family: "游明朝", "Yu Mincho", "MS 明朝", serif;
+              font-family: "MS 明朝", "ＭＳ 明朝", "MS Mincho", serif;
               font-size: 10.5pt;
-              line-height: 1.8;
+              line-height: 1.5;
               color: #000;
             }
-            h1 { font-size: 16pt; font-weight: bold; margin: 12pt 0 6pt; }
-            h2 { font-size: 14pt; font-weight: bold; margin: 12pt 0 6pt; }
-            h3 { font-size: 12pt; font-weight: bold; margin: 10pt 0 4pt; }
-            p { margin: 0 0 6pt; }
-            ul, ol { margin: 0 0 6pt; padding-left: 20pt; }
-            li { margin: 2pt 0; }
+            h1 {
+              font-family: "MS 明朝", "ＭＳ 明朝", "MS Mincho", serif;
+              font-size: 14pt;
+              font-weight: bold;
+              text-align: center;
+              margin: 0 0 2pt;
+              line-height: 1.5;
+            }
+            h2 {
+              font-family: "MS 明朝", "ＭＳ 明朝", "MS Mincho", serif;
+              font-size: 12pt;
+              font-weight: bold;
+              text-align: center;
+              margin: 0 0 12pt;
+              line-height: 1.5;
+            }
+            h3 {
+              font-family: "MS 明朝", "ＭＳ 明朝", "MS Mincho", serif;
+              font-size: 10.5pt;
+              font-weight: bold;
+              margin: 8pt 0 4pt;
+              line-height: 1.5;
+            }
+            p {
+              margin: 0 0 0pt;
+              line-height: 1.5;
+              text-align: justify;
+              text-justify: inter-ideograph;
+            }
+            ul, ol {
+              margin: 0 0 2pt;
+              padding-left: 18pt;
+              line-height: 1.5;
+            }
+            li {
+              margin: 0pt 0;
+              line-height: 1.5;
+            }
             table {
               border-collapse: collapse;
               width: 100%;
-              margin: 8pt 0;
+              margin: 6pt 0;
               font-size: 9.5pt;
+              line-height: 1.4;
             }
             th, td {
-              border: 1px solid #333;
-              padding: 4pt 8pt;
+              border: 1px solid #000;
+              padding: 3pt 6pt;
               text-align: left;
+              vertical-align: top;
             }
             th {
               background-color: #f0f0f0;
               font-weight: bold;
             }
             strong { font-weight: bold; }
-            pre { font-family: "MS ゴシック", monospace; font-size: 9pt; }
+            pre, code {
+              font-family: "MS ゴシック", "ＭＳ ゴシック", monospace;
+              font-size: 9pt;
+            }
           </style>
         </head>
-        <body>${htmlBody}</body>
+        <body>
+          <div class="Section1">
+            ${htmlBody}
+          </div>
+        </body>
       </html>
     `;
 
@@ -73,15 +138,15 @@ export async function POST(request: NextRequest) {
 
     const docxBuffer = await HTMLtoDOCX(fullHtml, null, {
       table: { row: { cantSplit: true } },
-      footer: false,
-      pageNumber: false,
-      font: "游明朝",
+      footer: true,
+      pageNumber: true,
+      font: "MS 明朝",
       fontSize: 21, // 10.5pt in half-points
       margins: {
-        top: 1440, // 1 inch
-        right: 1440,
-        bottom: 1440,
-        left: 1440,
+        top: 1418,  // ~25mm
+        right: 1418,
+        bottom: 1418,
+        left: 1418,
       },
     });
 
