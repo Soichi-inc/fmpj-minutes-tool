@@ -8,6 +8,7 @@ import { ArrowRight } from "lucide-react";
 import { FormatTemplate } from "@/lib/store/types";
 import { MeetingTypeSelector } from "@/components/meeting-type-selector";
 import { ReferenceSelector } from "@/components/reference-selector";
+import { AttendeeInput } from "@/components/attendee-input";
 
 interface MeetingInfo {
   meetingName: string;
@@ -15,6 +16,7 @@ interface MeetingInfo {
   date: string;
   location: string;
   attendees: string;
+  attendeeCategories: Record<string, string>;
   transcript: string;
   templateId: string;
   selectedReferenceIds: string[];
@@ -102,17 +104,18 @@ export function TranscriptInput({
         </div>
       </div>
 
-      {/* Attendees */}
-      <div className="space-y-2">
-        <Label htmlFor="attendees">出席者（改行区切り）</Label>
-        <Textarea
-          id="attendees"
-          value={meetingInfo.attendees}
-          onChange={(e) => update("attendees", e.target.value)}
-          placeholder={"山田太郎\n佐藤花子\n田中一郎"}
-          rows={3}
-        />
-      </div>
+      {/* Attendees - category-based or free text depending on meeting type */}
+      <AttendeeInput
+        meetingType={meetingInfo.meetingType}
+        categories={meetingInfo.attendeeCategories}
+        onCategoriesChange={(cats) =>
+          onChange({ ...meetingInfo, attendeeCategories: cats })
+        }
+        freeText={meetingInfo.attendees}
+        onFreeTextChange={(text) =>
+          onChange({ ...meetingInfo, attendees: text })
+        }
+      />
 
       {/* Reference materials */}
       <ReferenceSelector

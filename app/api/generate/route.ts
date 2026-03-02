@@ -22,6 +22,7 @@ export async function POST(request: NextRequest) {
       date,
       location,
       attendees,
+      attendeeCategories,
       customFormatInstructions,
       sampleOutput,
       referenceTexts,
@@ -40,6 +41,7 @@ export async function POST(request: NextRequest) {
       date: date || "未指定",
       location: location || "未指定",
       attendees: attendees || [],
+      attendeeCategories: attendeeCategories || undefined,
       customFormatInstructions: customFormatInstructions || undefined,
       sampleOutput: sampleOutput || undefined,
     });

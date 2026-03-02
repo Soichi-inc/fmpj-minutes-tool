@@ -22,12 +22,58 @@ export interface MeetingInfo {
   date: string;
   location: string;
   attendees: string;
+  attendeeCategories: Record<string, string>;
   transcript: string;
   templateId: string;
   selectedReferenceIds: string[];
 }
 
 const STEP_LABELS = ["会議情報入力", "話者特定", "生成中", "結果表示"];
+
+/**
+ * attendeeCategories をパースして { カテゴリ名: string[] } に変換
+ */
+function parseCategories(
+  categories: Record<string, string>
+): Record<string, string[]> {
+  const result: Record<string, string[]> = {};
+  for (const [key, val] of Object.entries(categories)) {
+    const names = val
+      .split("\n")
+      .map((s) => s.trim())
+      .filter(Boolean);
+    if (names.length > 0) {
+      result[key] = names;
+    }
+  }
+  return result;
+}
+
+/**
+ * 全カテゴリの出席者名をフラット配列にする（話者マッピング用）
+ */
+function flattenAttendees(
+  meetingType: string,
+  categories: Record<string, string>,
+  freeText: string
+): string[] {
+  if (meetingType === "理事会" || meetingType === "常任理事会") {
+    const all: string[] = [];
+    for (const val of Object.values(categories)) {
+      const names = val
+        .split("\n")
+        .map((s) => s.trim())
+        .filter(Boolean);
+      all.push(...names);
+    }
+    return all;
+  }
+  // その他: 従来のフリーテキスト
+  return freeText
+    .split("\n")
+    .map((s) => s.trim())
+    .filter(Boolean);
+}
 
 export default function DashboardPage() {
   const [step, setStep] = useState<Step>(1);
@@ -38,6 +84,7 @@ export default function DashboardPage() {
     date: new Date().toISOString().split("T")[0],
     location: "",
     attendees: "",
+    attendeeCategories: {},
     transcript: "",
     templateId: "",
     selectedReferenceIds: [],
@@ -51,10 +98,11 @@ export default function DashboardPage() {
     setTemplates(getTemplates());
   }, []);
 
-  const attendeesList = meetingInfo.attendees
-    .split("\n")
-    .map((s) => s.trim())
-    .filter(Boolean);
+  const attendeesList = flattenAttendees(
+    meetingInfo.meetingType,
+    meetingInfo.attendeeCategories,
+    meetingInfo.attendees
+  );
 
   const selectedTemplate = templates.find(
     (t) => t.id === meetingInfo.templateId
@@ -83,12 +131,23 @@ export default function DashboardPage() {
           );
           referenceTexts = refResults
             .filter(
-              (r): r is PromiseFulfilledResult<{ fileName: string; text: string } | null> =>
-                r.status === "fulfilled"
+              (
+                r
+              ): r is PromiseFulfilledResult<{
+                fileName: string;
+                text: string;
+              } | null> => r.status === "fulfilled"
             )
             .map((r) => r.value)
             .filter(Boolean) as { fileName: string; text: string }[];
         }
+
+        // Build attendeeCategories for structured prompt
+        const parsedCategories =
+          meetingInfo.meetingType === "理事会" ||
+          meetingInfo.meetingType === "常任理事会"
+            ? parseCategories(meetingInfo.attendeeCategories)
+            : undefined;
 
         const res = await fetch("/api/generate", {
           method: "POST",
@@ -102,6 +161,7 @@ export default function DashboardPage() {
             date: meetingInfo.date,
             location: meetingInfo.location,
             attendees: attendeesList,
+            attendeeCategories: parsedCategories,
             customFormatInstructions:
               selectedTemplate?.formatInstructions || "",
             sampleOutput: selectedTemplate?.sampleOutput || "",
@@ -235,6 +295,7 @@ export default function DashboardPage() {
       date: new Date().toISOString().split("T")[0],
       location: "",
       attendees: "",
+      attendeeCategories: {},
       transcript: "",
       templateId: "",
       selectedReferenceIds: [],

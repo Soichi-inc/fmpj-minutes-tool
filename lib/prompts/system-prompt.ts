@@ -4,13 +4,42 @@ export interface MinutesContext {
   date: string;
   location: string;
   attendees: string[];
+  /** カテゴリ別出席者（理事会/常任理事会用） */
+  attendeeCategories?: Record<string, string[]>;
   customFormatInstructions?: string;
   sampleOutput?: string;
   referenceTexts?: { fileName: string; text: string }[];
 }
 
-export function getSystemPrompt(context: MinutesContext): string {
+/**
+ * 出席者・欠席者ブロックを組み立てる。
+ * attendeeCategories が提供されている場合はカテゴリ別に出力し、
+ * そうでなければ従来のフラット出力にフォールバックする。
+ */
+function buildAttendeeBlock(context: MinutesContext): string {
+  if (
+    context.attendeeCategories &&
+    Object.keys(context.attendeeCategories).length > 0
+  ) {
+    // カテゴリ別出力（空カテゴリはスキップ）
+    const lines: string[] = [];
+    for (const [category, names] of Object.entries(
+      context.attendeeCategories
+    )) {
+      if (names.length > 0) {
+        lines.push(`${category}：${names.join("、")}`);
+      }
+    }
+    return lines.join("\n");
+  }
+
+  // 従来のフラット出力
   const attendeesList = context.attendees.join("、");
+  return `出席者：${attendeesList}\n欠席者：（該当があれば記載、不明な場合は「なし」）`;
+}
+
+export function getSystemPrompt(context: MinutesContext): string {
+  const attendeeBlock = buildAttendeeBlock(context);
 
   const basePrompt = `あなたは一般社団法人 日本音楽制作者連盟（FMPJ / 音制連）の正式な議事録を作成する専門AIです。
 以下のフォーマットルールに**厳密に**従って議事録を作成してください。
@@ -36,8 +65,7 @@ ${context.meetingName} 議事録
 --- 基本情報ブロック ---
 日　　時：${context.date}
 場　　所：${context.location}
-出席者：${attendeesList}
-欠席者：（該当があれば記載、不明な場合は「なし」）
+${attendeeBlock}
 議事録作成者：AI自動生成
 ※全角スペースで項目名の幅を揃える。出席者が多い場合は改行してインデント。
 
@@ -129,7 +157,8 @@ export function buildUserMessage(
       message += `\n--- 資料${i + 1}: ${ref.fileName} ---\n${ref.text}\n`;
     });
     message += "\n═══ 参考資料ここまで ═══\n";
-    message += "\n※参考資料内の正確な名称・数値・日付がある場合、文字起こしよりも参考資料を優先してください。\n";
+    message +=
+      "\n※参考資料内の正確な名称・数値・日付がある場合、文字起こしよりも参考資料を優先してください。\n";
   }
 
   return message;
