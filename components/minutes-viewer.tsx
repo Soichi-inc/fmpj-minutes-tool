@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { Button } from "@/components/ui/button";
@@ -14,6 +14,7 @@ import {
   ListTodo,
   Loader2,
 } from "lucide-react";
+import { downloadAsWord, downloadAsPdf } from "@/lib/export-utils";
 
 interface MinutesViewerProps {
   content: string;
@@ -25,7 +26,8 @@ export function MinutesViewer({ content, onReset }: MinutesViewerProps) {
   const [copiedMinutes, setCopiedMinutes] = useState(false);
   const [copiedTodo, setCopiedTodo] = useState(false);
   const [exporting, setExporting] = useState<"docx" | "pdf" | null>(null);
-  const printRef = useRef<HTMLDivElement>(null);
+
+  const baseName = `議事録_${new Date().toISOString().split("T")[0]}`;
 
   const copyToClipboard = async (text: string, type: "minutes" | "todo") => {
     try {
@@ -52,75 +54,28 @@ export function MinutesViewer({ content, onReset }: MinutesViewerProps) {
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `議事録_${new Date().toISOString().split("T")[0]}.md`;
+    a.download = `${baseName}.md`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
   };
 
-  const downloadDocx = async () => {
+  const handleWordDownload = async () => {
     setExporting("docx");
     try {
-      const res = await fetch("/api/export/docx", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          content,
-          fileName: `議事録_${new Date().toISOString().split("T")[0]}`,
-        }),
-      });
-
-      if (!res.ok) {
-        const data = await res.json();
-        throw new Error(data.error || "Word出力に失敗しました");
-      }
-
-      const blob = await res.blob();
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `議事録_${new Date().toISOString().split("T")[0]}.docx`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
+      await downloadAsWord(content, baseName);
     } catch (err) {
-      alert(
-        err instanceof Error ? err.message : "Word出力に失敗しました"
-      );
+      alert(err instanceof Error ? err.message : "Word出力に失敗しました");
     } finally {
       setExporting(null);
     }
   };
 
-  const downloadPdf = async () => {
+  const handlePdfDownload = async () => {
     setExporting("pdf");
     try {
-      // Dynamic import html2pdf.js (client-side only)
-      const html2pdf = (await import("html2pdf.js")).default;
-
-      const element = printRef.current;
-      if (!element) throw new Error("印刷要素が見つかりません");
-
-      const opt = {
-        margin: [15, 15, 15, 15],
-        filename: `議事録_${new Date().toISOString().split("T")[0]}.pdf`,
-        image: { type: "jpeg", quality: 0.98 },
-        html2canvas: {
-          scale: 2,
-          useCORS: true,
-          letterRendering: true,
-        },
-        jsPDF: {
-          unit: "mm",
-          format: "a4",
-          orientation: "portrait",
-        },
-        pagebreak: { mode: ["avoid-all", "css", "legacy"] },
-      };
-
-      await html2pdf().set(opt).from(element).save();
+      await downloadAsPdf(content, baseName);
     } catch (err) {
       alert(err instanceof Error ? err.message : "PDF出力に失敗しました");
     } finally {
@@ -135,7 +90,7 @@ export function MinutesViewer({ content, onReset }: MinutesViewerProps) {
         <Button
           variant="outline"
           size="sm"
-          onClick={downloadDocx}
+          onClick={handleWordDownload}
           disabled={exporting !== null}
         >
           {exporting === "docx" ? (
@@ -148,7 +103,7 @@ export function MinutesViewer({ content, onReset }: MinutesViewerProps) {
         <Button
           variant="outline"
           size="sm"
-          onClick={downloadPdf}
+          onClick={handlePdfDownload}
           disabled={exporting !== null}
         >
           {exporting === "pdf" ? (
@@ -168,78 +123,75 @@ export function MinutesViewer({ content, onReset }: MinutesViewerProps) {
         </Button>
       </div>
 
-      {/* Printable content (used by PDF export) */}
-      <div ref={printRef}>
-        {/* Two column layout */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Minutes column */}
-          <div className="lg:col-span-2 space-y-3">
-            <div className="flex items-center justify-between">
-              <h3 className="font-medium flex items-center gap-2">
-                <FileText className="h-4 w-4" />
-                議事録
-              </h3>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => copyToClipboard(minutesContent, "minutes")}
-              >
-                {copiedMinutes ? (
-                  <>
-                    <Check className="mr-1 h-3 w-3" />
-                    コピー済み
-                  </>
-                ) : (
-                  <>
-                    <Copy className="mr-1 h-3 w-3" />
-                    コピー
-                  </>
-                )}
-              </Button>
-            </div>
-            <div className="border rounded-lg p-6 bg-white prose prose-sm max-w-none prose-headings:text-foreground prose-p:text-foreground prose-li:text-foreground prose-strong:text-foreground">
-              <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                {minutesContent}
-              </ReactMarkdown>
-            </div>
-          </div>
-
-          {/* Todo column */}
-          <div className="space-y-3">
-            <div className="flex items-center justify-between">
-              <h3 className="font-medium flex items-center gap-2">
-                <ListTodo className="h-4 w-4" />
-                ToDoリスト
-              </h3>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => copyToClipboard(todoContent, "todo")}
-              >
-                {copiedTodo ? (
-                  <>
-                    <Check className="mr-1 h-3 w-3" />
-                    コピー済み
-                  </>
-                ) : (
-                  <>
-                    <Copy className="mr-1 h-3 w-3" />
-                    コピー
-                  </>
-                )}
-              </Button>
-            </div>
-            <div className="border rounded-lg p-6 bg-white prose prose-sm max-w-none prose-headings:text-foreground prose-p:text-foreground prose-li:text-foreground prose-td:text-foreground prose-th:text-foreground">
-              {todoContent ? (
-                <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                  {todoContent}
-                </ReactMarkdown>
+      {/* Two column layout */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Minutes column */}
+        <div className="lg:col-span-2 space-y-3">
+          <div className="flex items-center justify-between">
+            <h3 className="font-medium flex items-center gap-2">
+              <FileText className="h-4 w-4" />
+              議事録
+            </h3>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => copyToClipboard(minutesContent, "minutes")}
+            >
+              {copiedMinutes ? (
+                <>
+                  <Check className="mr-1 h-3 w-3" />
+                  コピー済み
+                </>
               ) : (
-                <p className="text-muted-foreground text-sm">
-                  ToDoリストは検出されませんでした
-                </p>
+                <>
+                  <Copy className="mr-1 h-3 w-3" />
+                  コピー
+                </>
               )}
-            </div>
+            </Button>
+          </div>
+          <div className="border rounded-lg p-6 bg-white prose prose-sm max-w-none prose-headings:text-foreground prose-p:text-foreground prose-li:text-foreground prose-strong:text-foreground">
+            <ReactMarkdown remarkPlugins={[remarkGfm]}>
+              {minutesContent}
+            </ReactMarkdown>
+          </div>
+        </div>
+
+        {/* Todo column */}
+        <div className="space-y-3">
+          <div className="flex items-center justify-between">
+            <h3 className="font-medium flex items-center gap-2">
+              <ListTodo className="h-4 w-4" />
+              ToDoリスト
+            </h3>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => copyToClipboard(todoContent, "todo")}
+            >
+              {copiedTodo ? (
+                <>
+                  <Check className="mr-1 h-3 w-3" />
+                  コピー済み
+                </>
+              ) : (
+                <>
+                  <Copy className="mr-1 h-3 w-3" />
+                  コピー
+                </>
+              )}
+            </Button>
+          </div>
+          <div className="border rounded-lg p-6 bg-white prose prose-sm max-w-none prose-headings:text-foreground prose-p:text-foreground prose-li:text-foreground prose-td:text-foreground prose-th:text-foreground">
+            {todoContent ? (
+              <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                {todoContent}
+              </ReactMarkdown>
+            ) : (
+              <p className="text-muted-foreground text-sm">
+                ToDoリストは検出されませんでした
+              </p>
+            )}
           </div>
         </div>
       </div>
