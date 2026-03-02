@@ -22,7 +22,7 @@ import {
   Search,
   Loader2,
   FileText,
-  FileDown,
+  Printer,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { downloadAsWord, downloadAsPdf } from "@/lib/export-utils";
@@ -255,8 +255,8 @@ export default function HistoryPage() {
                             }}
                             disabled={isExporting}
                           >
-                            <FileDown className="h-3.5 w-3.5" />
-                            PDF
+                            <Printer className="h-3.5 w-3.5" />
+                            PDF（印刷）
                           </button>
                           <button
                             className="w-full text-left px-3 py-2 text-sm hover:bg-accent flex items-center gap-2"

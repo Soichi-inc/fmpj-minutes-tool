@@ -8,20 +8,102 @@ async function markdownToHtml(markdownContent: string): Promise<string> {
 }
 
 /**
- * FMPJ議事録フォーマット用のCSSスタイル
+ * FMPJ議事録フォーマット用のCSSスタイル（Word用）
  * Font: MS 明朝, Size: 10.5pt, Line-height: 1.5
+ * ※ text-align: justify は Word で文字が均等割り付けされるため使用しない
  */
-const FMPJ_STYLE = `
+const FMPJ_WORD_STYLE = `
+  @page {
+    size: A4;
+    margin: 25mm 25mm 25mm 25mm;
+  }
+  body {
+    font-family: "MS 明朝", "ＭＳ 明朝", "MS Mincho", serif;
+    font-size: 10.5pt;
+    line-height: 1.5;
+    color: #000;
+    text-align: left;
+  }
+  h1 {
+    font-family: "MS 明朝", "ＭＳ 明朝", "MS Mincho", serif;
+    font-size: 14pt;
+    font-weight: bold;
+    text-align: center;
+    margin: 0 0 2pt;
+    line-height: 1.5;
+  }
+  h2 {
+    font-family: "MS 明朝", "ＭＳ 明朝", "MS Mincho", serif;
+    font-size: 12pt;
+    font-weight: bold;
+    text-align: center;
+    margin: 0 0 10pt;
+    line-height: 1.5;
+  }
+  h3 {
+    font-family: "MS 明朝", "ＭＳ 明朝", "MS Mincho", serif;
+    font-size: 10.5pt;
+    font-weight: bold;
+    text-align: left;
+    margin: 8pt 0 4pt;
+    line-height: 1.5;
+  }
+  p {
+    margin: 0 0 2pt;
+    text-align: left;
+    line-height: 1.5;
+  }
+  ul, ol {
+    margin: 0 0 2pt;
+    padding-left: 18pt;
+    line-height: 1.5;
+  }
+  li {
+    margin: 0;
+    text-align: left;
+    line-height: 1.5;
+  }
+  table {
+    border-collapse: collapse;
+    width: 100%;
+    margin: 6pt 0;
+    font-size: 9.5pt;
+    line-height: 1.4;
+  }
+  th, td {
+    border: 1px solid #000;
+    padding: 3pt 6pt;
+    text-align: left;
+    vertical-align: top;
+  }
+  th {
+    background-color: #f0f0f0;
+    font-weight: bold;
+  }
+  strong { font-weight: bold; }
+`;
+
+/**
+ * PDF印刷用のCSSスタイル
+ */
+const FMPJ_PDF_STYLE = `
   @page {
     size: A4;
     margin: 25mm;
   }
+  * {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+  }
   body {
-    font-family: "MS 明朝", "ＭＳ 明朝", "MS Mincho", "Yu Mincho", "游明朝", serif;
+    font-family: "MS 明朝", "ＭＳ 明朝", "MS Mincho", "Yu Mincho", "游明朝", "Hiragino Mincho ProN", serif;
     font-size: 10.5pt;
     line-height: 1.5;
     color: #000;
-    text-align: justify;
+    text-align: left;
+    padding: 0;
+    margin: 0;
   }
   h1 {
     font-size: 14pt;
@@ -40,11 +122,13 @@ const FMPJ_STYLE = `
   h3 {
     font-size: 10.5pt;
     font-weight: bold;
+    text-align: left;
     margin: 8pt 0 4pt;
     line-height: 1.5;
   }
   p {
     margin: 0 0 2pt;
+    text-align: left;
     line-height: 1.5;
   }
   ul, ol {
@@ -74,6 +158,9 @@ const FMPJ_STYLE = `
     font-weight: bold;
   }
   strong { font-weight: bold; }
+  @media print {
+    body { margin: 0; padding: 0; }
+  }
 `;
 
 /**
@@ -103,7 +190,7 @@ export async function downloadAsWord(
 </xml>
 <![endif]-->
 <style>
-${FMPJ_STYLE}
+${FMPJ_WORD_STYLE}
 </style>
 </head>
 <body>
@@ -120,7 +207,7 @@ ${htmlBody}
 
 /**
  * Download markdown content as a PDF file.
- * Renders HTML in a temporary element and captures it with html2canvas + jsPDF.
+ * Uses a hidden iframe with print dialog for reliable Japanese text rendering.
  */
 export async function downloadAsPdf(
   markdownContent: string,
@@ -128,108 +215,57 @@ export async function downloadAsPdf(
 ) {
   const htmlBody = await markdownToHtml(markdownContent);
 
-  // Create a temporary container with A4-like styling
-  const container = document.createElement("div");
-  container.style.cssText = `
-    position: fixed;
-    left: -9999px;
-    top: 0;
-    width: 700px;
-    padding: 40px;
-    background: white;
-    font-family: "MS 明朝", "Yu Mincho", "游明朝", serif;
-    font-size: 14px;
-    line-height: 1.5;
-    color: #000;
-  `;
-  container.innerHTML = `<style>
-    h1 { font-size: 18px; font-weight: bold; text-align: center; margin: 0 0 2px; }
-    h2 { font-size: 16px; font-weight: bold; text-align: center; margin: 0 0 10px; }
-    h3 { font-size: 14px; font-weight: bold; margin: 10px 0 4px; }
-    p { margin: 0 0 3px; }
-    ul, ol { margin: 0 0 3px; padding-left: 20px; }
-    li { margin: 0; }
-    table { border-collapse: collapse; width: 100%; margin: 8px 0; font-size: 12px; }
-    th, td { border: 1px solid #000; padding: 4px 8px; text-align: left; vertical-align: top; }
-    th { background-color: #f0f0f0; font-weight: bold; }
-  </style>${htmlBody}`;
+  const fullHtml = `<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>${fileName}</title>
+<style>
+${FMPJ_PDF_STYLE}
+</style>
+</head>
+<body>
+${htmlBody}
+</body>
+</html>`;
 
-  document.body.appendChild(container);
+  // Create a hidden iframe for printing
+  const iframe = document.createElement("iframe");
+  iframe.style.cssText = "position:fixed;left:-9999px;top:0;width:0;height:0;border:none;";
+  document.body.appendChild(iframe);
 
   try {
-    const html2canvas = (await import("html2canvas")).default;
-    const { jsPDF } = await import("jspdf");
-
-    const canvas = await html2canvas(container, {
-      scale: 2,
-      useCORS: true,
-      logging: false,
-      backgroundColor: "#ffffff",
-    });
-
-    const imgData = canvas.toDataURL("image/jpeg", 0.95);
-    const pdf = new jsPDF("p", "mm", "a4");
-
-    const pageWidth = pdf.internal.pageSize.getWidth();
-    const pageHeight = pdf.internal.pageSize.getHeight();
-    const margin = 15; // mm
-
-    const contentWidth = pageWidth - margin * 2;
-    const imgHeight = (canvas.height * contentWidth) / canvas.width;
-    const usableHeight = pageHeight - margin * 2;
-
-    let position = 0;
-    let pageNum = 0;
-
-    while (position < imgHeight) {
-      if (pageNum > 0) {
-        pdf.addPage();
-      }
-
-      // Calculate the source crop for this page
-      const sourceY = (position / imgHeight) * canvas.height;
-      const sourceHeight = Math.min(
-        (usableHeight / imgHeight) * canvas.height,
-        canvas.height - sourceY
-      );
-      const destHeight = (sourceHeight / canvas.height) * imgHeight;
-
-      // Create a cropped canvas for this page
-      const pageCanvas = document.createElement("canvas");
-      pageCanvas.width = canvas.width;
-      pageCanvas.height = sourceHeight;
-      const ctx = pageCanvas.getContext("2d");
-      if (ctx) {
-        ctx.drawImage(
-          canvas,
-          0,
-          sourceY,
-          canvas.width,
-          sourceHeight,
-          0,
-          0,
-          canvas.width,
-          sourceHeight
-        );
-      }
-
-      const pageImgData = pageCanvas.toDataURL("image/jpeg", 0.95);
-      pdf.addImage(
-        pageImgData,
-        "JPEG",
-        margin,
-        margin,
-        contentWidth,
-        destHeight
-      );
-
-      position += usableHeight;
-      pageNum++;
+    const iframeDoc = iframe.contentDocument || iframe.contentWindow?.document;
+    if (!iframeDoc) {
+      throw new Error("iframe document にアクセスできません");
     }
 
-    pdf.save(`${fileName}.pdf`);
-  } finally {
-    document.body.removeChild(container);
+    iframeDoc.open();
+    iframeDoc.write(fullHtml);
+    iframeDoc.close();
+
+    // Wait for content to render
+    await new Promise<void>((resolve) => {
+      if (iframe.contentWindow) {
+        iframe.contentWindow.onload = () => resolve();
+        // Fallback timeout in case onload doesn't fire
+        setTimeout(resolve, 1000);
+      } else {
+        setTimeout(resolve, 1000);
+      }
+    });
+
+    // Trigger print dialog (user can choose "Save as PDF")
+    iframe.contentWindow?.focus();
+    iframe.contentWindow?.print();
+
+    // Remove iframe after a delay to allow print dialog
+    setTimeout(() => {
+      document.body.removeChild(iframe);
+    }, 3000);
+  } catch {
+    document.body.removeChild(iframe);
+    throw new Error("PDF出力の準備に失敗しました");
   }
 }
 
