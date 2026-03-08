@@ -413,7 +413,13 @@ export default function DashboardPage() {
         )}
 
         {step === 4 && (
-          <MinutesViewer content={generatedContent} onReset={handleReset} />
+          <MinutesViewer
+            content={generatedContent}
+            meetingType={meetingInfo.meetingType}
+            meetingName={meetingInfo.meetingName}
+            date={meetingInfo.date}
+            onReset={handleReset}
+          />
         )}
       </div>
     </div>

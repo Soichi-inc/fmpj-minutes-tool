@@ -21,6 +21,16 @@ export interface MinutesRecord {
   createdAt: string;
 }
 
+export interface LearningPair {
+  id: string;
+  meetingType: string;
+  meetingName: string;
+  date: string;
+  originalContent: string; // AI生成ドラフト (A) or 文字起こし
+  finalContent: string; // 確定版 (A')
+  createdAt: string;
+}
+
 export const DEFAULT_MEETING_TYPES = [
   "理事会",
   "委員会",

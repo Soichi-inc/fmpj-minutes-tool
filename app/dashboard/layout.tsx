@@ -8,11 +8,13 @@ import {
   LayoutDashboard,
   Settings,
   FolderOpen,
+  Brain,
 } from "lucide-react";
 
 const NAV_ITEMS = [
   { href: "/dashboard", label: "議事録作成", icon: FileText },
   { href: "/dashboard/reference", label: "参考資料", icon: FolderOpen },
+  { href: "/dashboard/learning", label: "学習データ", icon: Brain },
   { href: "/dashboard/history", label: "過去の議事録", icon: LayoutDashboard },
   { href: "/dashboard/templates", label: "フォーマット設定", icon: Settings },
 ];

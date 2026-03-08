@@ -4,6 +4,7 @@ import { useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
 import { Separator } from "@/components/ui/separator";
 import {
   Copy,
@@ -14,21 +15,79 @@ import {
   ListTodo,
   Loader2,
   Printer,
+  BookOpen,
+  Save,
+  Pencil,
+  X,
+  CheckCircle2,
 } from "lucide-react";
 import { downloadAsWord, downloadAsPdf } from "@/lib/export-utils";
 
 interface MinutesViewerProps {
   content: string;
+  meetingType?: string;
+  meetingName?: string;
+  date?: string;
   onReset: () => void;
 }
 
-export function MinutesViewer({ content, onReset }: MinutesViewerProps) {
+export function MinutesViewer({
+  content,
+  meetingType,
+  meetingName,
+  date,
+  onReset,
+}: MinutesViewerProps) {
   const { minutesContent, todoContent } = splitContent(content);
   const [copiedMinutes, setCopiedMinutes] = useState(false);
   const [copiedTodo, setCopiedTodo] = useState(false);
   const [exporting, setExporting] = useState<"docx" | "pdf" | null>(null);
 
+  // 確定版保存 states
+  const [isEditing, setIsEditing] = useState(false);
+  const [editedContent, setEditedContent] = useState("");
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveSuccess, setSaveSuccess] = useState(false);
+  const [saveError, setSaveError] = useState("");
+
   const baseName = `議事録_${new Date().toISOString().split("T")[0]}`;
+
+  const handleStartEditing = () => {
+    setEditedContent(content);
+    setIsEditing(true);
+    setSaveSuccess(false);
+    setSaveError("");
+  };
+
+  const handleSaveAsLearning = async () => {
+    setIsSaving(true);
+    setSaveError("");
+    try {
+      const res = await fetch("/api/learning/save", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          meetingType: meetingType || "その他",
+          meetingName: meetingName || "",
+          date: date || "",
+          originalContent: content,
+          finalContent: editedContent,
+        }),
+      });
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || "保存に失敗しました");
+      }
+      setSaveSuccess(true);
+      setIsEditing(false);
+    } catch (err) {
+      setSaveError(
+        err instanceof Error ? err.message : "保存に失敗しました"
+      );
+    } finally {
+      setIsSaving(false);
+    }
+  };
 
   const copyToClipboard = async (text: string, type: "minutes" | "todo") => {
     try {
@@ -195,6 +254,93 @@ export function MinutesViewer({ content, onReset }: MinutesViewerProps) {
             )}
           </div>
         </div>
+      </div>
+
+      <Separator />
+
+      {/* 学習データとして保存 */}
+      <div className="space-y-3">
+        {!isEditing && !saveSuccess && (
+          <div className="border rounded-lg p-4 bg-blue-50/50">
+            <div className="flex items-start gap-3">
+              <BookOpen className="h-5 w-5 text-blue-600 shrink-0 mt-0.5" />
+              <div className="flex-1">
+                <p className="text-sm font-medium text-blue-900">
+                  学習データとして保存
+                </p>
+                <p className="text-xs text-blue-700 mt-1">
+                  AI生成結果を編集して確定版として保存すると、次回以降の議事録生成の品質が向上します。
+                </p>
+              </div>
+              <Button size="sm" onClick={handleStartEditing}>
+                <Pencil className="mr-1.5 h-3.5 w-3.5" />
+                編集して保存
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {isEditing && (
+          <div className="border rounded-lg p-4 space-y-3">
+            <div className="flex items-center justify-between">
+              <h4 className="text-sm font-medium flex items-center gap-2">
+                <Pencil className="h-4 w-4" />
+                確定版を編集
+              </h4>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setIsEditing(false)}
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+            <Textarea
+              value={editedContent}
+              onChange={(e) => setEditedContent(e.target.value)}
+              rows={20}
+              className="font-mono text-sm"
+            />
+            {saveError && (
+              <p className="text-sm text-destructive">{saveError}</p>
+            )}
+            <div className="flex justify-end gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setIsEditing(false)}
+              >
+                キャンセル
+              </Button>
+              <Button
+                size="sm"
+                onClick={handleSaveAsLearning}
+                disabled={isSaving}
+              >
+                {isSaving ? (
+                  <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <Save className="mr-1.5 h-3.5 w-3.5" />
+                )}
+                確定版として保存
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {saveSuccess && (
+          <div className="border rounded-lg p-4 bg-green-50 flex items-center gap-3">
+            <CheckCircle2 className="h-5 w-5 text-green-600 shrink-0" />
+            <div className="flex-1">
+              <p className="text-sm font-medium text-green-800">
+                学習データとして保存しました
+              </p>
+              <p className="text-xs text-green-600">
+                次回の議事録生成時に参考データとして自動的に使用されます。
+              </p>
+            </div>
+          </div>
+        )}
       </div>
 
       <Separator />

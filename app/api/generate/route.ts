@@ -1,5 +1,6 @@
 import { NextRequest } from "next/server";
 import { cookies } from "next/headers";
+import { list } from "@vercel/blob";
 import { getAnthropicClient } from "@/lib/anthropic";
 import { getSystemPrompt, buildUserMessage } from "@/lib/prompts/system-prompt";
 
@@ -35,6 +36,60 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // 学習データから過去の確定版を取得してsampleOutputに追加
+    let enrichedSampleOutput = sampleOutput || "";
+    if (meetingType) {
+      try {
+        const { blobs } = await list({ prefix: "learning/" });
+        const learningPairs: Array<{
+          meetingType: string;
+          finalContent: string;
+          createdAt: string;
+        }> = [];
+
+        await Promise.all(
+          blobs.map(async (blob) => {
+            try {
+              const res = await fetch(blob.url);
+              if (!res.ok) return;
+              const data = await res.json();
+              if (data.meetingType === meetingType && data.finalContent) {
+                learningPairs.push({
+                  meetingType: data.meetingType,
+                  finalContent: data.finalContent,
+                  createdAt: data.createdAt,
+                });
+              }
+            } catch {
+              // Skip corrupted entries
+            }
+          })
+        );
+
+        // 直近2件を取得
+        learningPairs.sort(
+          (a, b) =>
+            new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+        );
+        const recentPairs = learningPairs.slice(0, 2);
+
+        if (recentPairs.length > 0) {
+          const learningSamples = recentPairs
+            .map(
+              (p, i) =>
+                `--- 過去の確定済み議事録 ${i + 1} ---\n${p.finalContent}`
+            )
+            .join("\n\n");
+
+          enrichedSampleOutput = enrichedSampleOutput
+            ? `${enrichedSampleOutput}\n\n${learningSamples}`
+            : learningSamples;
+        }
+      } catch {
+        // 学習データ取得失敗時は無視して続行
+      }
+    }
+
     const systemPrompt = getSystemPrompt({
       meetingName: meetingName || "会議",
       meetingType: meetingType || "",
@@ -43,7 +98,7 @@ export async function POST(request: NextRequest) {
       attendees: attendees || [],
       attendeeCategories: attendeeCategories || undefined,
       customFormatInstructions: customFormatInstructions || undefined,
-      sampleOutput: sampleOutput || undefined,
+      sampleOutput: enrichedSampleOutput || undefined,
     });
 
     const userMessage = buildUserMessage(transcript, referenceTexts);
