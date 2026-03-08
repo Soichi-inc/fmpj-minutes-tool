@@ -2,10 +2,14 @@ import { NextRequest } from "next/server";
 import { cookies } from "next/headers";
 import { getOpenAIClient } from "@/lib/openai";
 import { del } from "@vercel/blob";
-import { WHISPER_CHUNK_SIZE } from "@/lib/audio-constants";
+import {
+  WHISPER_CHUNK_SIZE,
+  MAX_AUDIO_DURATION_MINUTES,
+  WHISPER_CONCURRENCY,
+} from "@/lib/audio-constants";
 
 export const runtime = "nodejs";
-export const maxDuration = 600; // 10 minutes for large files with multiple chunks
+export const maxDuration = 300; // Vercel Pro max (5 min function timeout)
 
 const WHISPER_API_LIMIT = WHISPER_CHUNK_SIZE;
 
@@ -47,56 +51,85 @@ export async function POST(request: NextRequest) {
         const fileSizeMB = (audioBuffer.byteLength / 1024 / 1024).toFixed(1);
 
         if (audioBuffer.byteLength <= WHISPER_API_LIMIT) {
-          // ── Single chunk: existing flow ──
+          // ── Single chunk ──
           send({
             status: "transcribing",
             message: `文字起こし中...（${fileSizeMB}MB）`,
           });
 
-          const transcript = await transcribeBuffer(
-            audioBuffer,
-            fileName,
-            0
-          );
+          const result = await transcribeBuffer(audioBuffer, fileName);
 
-          if (!transcript.text.trim()) {
+          if (!result.text.trim()) {
             throw new Error(
               "文字起こし結果が空です。音声ファイルを確認してください。"
             );
           }
 
-          send({ status: "done", transcript: transcript.text });
+          // Duration check (single file)
+          if (
+            result.duration > 0 &&
+            result.duration > MAX_AUDIO_DURATION_MINUTES * 60
+          ) {
+            throw new Error(
+              `音声が${MAX_AUDIO_DURATION_MINUTES}分を超えています。短い音声に分割してください。`
+            );
+          }
+
+          send({ status: "done", transcript: result.text });
         } else {
-          // ── Multi-chunk: split and transcribe ──
-          const chunks = splitAudioBuffer(audioBuffer, fileName);
+          // ── Multi-chunk: split → parallel transcribe → merge ──
+          const ext = (fileName || "").split(".").pop()?.toLowerCase();
+          const chunks = splitAudioBuffer(audioBuffer, ext);
           const totalChunks = chunks.length;
 
           send({
             status: "transcribing",
-            message: `大きいファイル（${fileSizeMB}MB）を${totalChunks}個に分割して文字起こし中...`,
+            message: `大きいファイル（${fileSizeMB}MB）を${totalChunks}個に分割して並列処理中...`,
           });
 
-          let allSegments: Array<{ start: number; text: string }> = [];
-          let timeOffset = 0;
+          // Process chunks in parallel with concurrency limit
+          const results: ChunkResult[] = new Array(totalChunks);
+          let completed = 0;
 
-          for (let i = 0; i < totalChunks; i++) {
+          const processChunk = async (index: number) => {
+            const result = await transcribeBuffer(
+              chunks[index],
+              getChunkFileName(fileName, index)
+            );
+            results[index] = result;
+            completed++;
             send({
               status: "transcribing",
-              message: `文字起こし中... (${i + 1}/${totalChunks})`,
+              message: `文字起こし中... (${completed}/${totalChunks} 完了)`,
             });
+          };
 
-            const result = await transcribeBuffer(
-              chunks[i],
-              getChunkFileName(fileName, i),
-              timeOffset
-            );
+          // Run with concurrency limit
+          await runWithConcurrency(
+            chunks.map((_, i) => () => processChunk(i)),
+            WHISPER_CONCURRENCY
+          );
 
-            allSegments = allSegments.concat(result.segments);
+          // Calculate cumulative time offsets from each chunk's duration
+          let offset = 0;
+          const allSegments: Array<{ start: number; text: string }> = [];
 
-            // Use Whisper's reported duration for offset
-            if (result.duration > 0) {
-              timeOffset += result.duration;
+          for (const result of results) {
+            for (const seg of result.localSegments) {
+              allSegments.push({
+                start: seg.start + offset,
+                text: seg.text,
+              });
             }
+            offset += result.duration;
+          }
+
+          // Duration check (total)
+          const totalDuration = offset;
+          if (totalDuration > MAX_AUDIO_DURATION_MINUTES * 60) {
+            throw new Error(
+              `音声の合計が約${Math.round(totalDuration / 60)}分あり、上限の${MAX_AUDIO_DURATION_MINUTES}分を超えています。`
+            );
           }
 
           const formattedTranscript = formatSegments(allSegments);
@@ -106,7 +139,10 @@ export async function POST(request: NextRequest) {
             );
           }
 
-          send({ status: "done", transcript: formattedTranscript });
+          send({
+            status: "done",
+            transcript: formattedTranscript,
+          });
         }
 
         // Clean up temp blob
@@ -135,29 +171,47 @@ export async function POST(request: NextRequest) {
   });
 }
 
+// ─── Concurrency helper ───
+
+async function runWithConcurrency(
+  tasks: Array<() => Promise<void>>,
+  limit: number
+): Promise<void> {
+  const executing: Set<Promise<void>> = new Set();
+
+  for (const task of tasks) {
+    const p = task().then(() => {
+      executing.delete(p);
+    });
+    executing.add(p);
+
+    if (executing.size >= limit) {
+      await Promise.race(executing);
+    }
+  }
+
+  await Promise.all(executing);
+}
+
 // ─── Audio splitting ───
 
 function splitAudioBuffer(
   buffer: ArrayBuffer,
-  fileName?: string
+  ext?: string
 ): ArrayBuffer[] {
-  const ext = (fileName || "").split(".").pop()?.toLowerCase();
-
   if (ext === "wav") {
     return splitWav(buffer);
   }
-  // MP3, M4A, etc.: raw binary splitting
   return splitRaw(buffer);
 }
 
 /**
- * WAV splitting: copy the header to each chunk so every chunk is a valid WAV.
+ * WAV: copy header to each chunk → each chunk is a valid WAV file.
  */
 function splitWav(buffer: ArrayBuffer): ArrayBuffer[] {
   const view = new DataView(buffer);
 
-  // Find the "data" sub-chunk
-  let headerEnd = 12; // skip RIFF + size + WAVE
+  let headerEnd = 12;
   let dataOffset = 0;
   let dataSize = 0;
 
@@ -176,11 +230,10 @@ function splitWav(buffer: ArrayBuffer): ArrayBuffer[] {
       break;
     }
     headerEnd += 8 + subChunkSize;
-    if (subChunkSize % 2 !== 0) headerEnd++; // padding byte
+    if (subChunkSize % 2 !== 0) headerEnd++;
   }
 
   if (dataOffset === 0) {
-    // Couldn't parse WAV header; fall back to raw splitting
     return splitRaw(buffer);
   }
 
@@ -194,18 +247,14 @@ function splitWav(buffer: ArrayBuffer): ArrayBuffer[] {
     const chunkBuf = new ArrayBuffer(headerSize + thisDataSize);
     const chunkArr = new Uint8Array(chunkBuf);
 
-    // Copy header
     chunkArr.set(headerBytes);
-    // Copy audio data
     chunkArr.set(
       new Uint8Array(buffer, dataOffset + i, thisDataSize),
       headerSize
     );
 
-    // Fix RIFF total size
     const dv = new DataView(chunkBuf);
     dv.setUint32(4, chunkBuf.byteLength - 8, true);
-    // Fix data chunk size (it's 4 bytes before dataOffset in the header)
     dv.setUint32(headerSize - 4, thisDataSize, true);
 
     chunks.push(chunkBuf);
@@ -215,8 +264,7 @@ function splitWav(buffer: ArrayBuffer): ArrayBuffer[] {
 }
 
 /**
- * Raw binary splitting for MP3 / M4A / other compressed formats.
- * MP3 frames are self-contained so decoders can re-sync.
+ * Raw binary splitting for MP3 / M4A etc.
  */
 function splitRaw(buffer: ArrayBuffer): ArrayBuffer[] {
   const chunks: ArrayBuffer[] = [];
@@ -230,19 +278,20 @@ function splitRaw(buffer: ArrayBuffer): ArrayBuffer[] {
   return chunks;
 }
 
-// ─── Whisper API call ───
+// ─── Whisper API ───
 
-interface TranscribeResult {
+interface ChunkResult {
   text: string;
-  segments: Array<{ start: number; text: string }>;
+  /** Segments with timestamps LOCAL to this chunk (no offset applied) */
+  localSegments: Array<{ start: number; text: string }>;
+  /** Whisper-reported duration of this chunk in seconds */
   duration: number;
 }
 
 async function transcribeBuffer(
   buffer: ArrayBuffer,
-  fileName: string,
-  timeOffset: number
-): Promise<TranscribeResult> {
+  fileName: string
+): Promise<ChunkResult> {
   const contentType = getContentType(fileName);
   const file = new File([buffer], fileName || "audio.mp3", {
     type: contentType,
@@ -257,7 +306,6 @@ async function transcribeBuffer(
     timestamp_granularities: ["segment"],
   });
 
-  // Extract segments with offset applied
   const rawSegments: Array<{ start: number; text: string }> =
     (
       transcription as unknown as {
@@ -265,8 +313,8 @@ async function transcribeBuffer(
       }
     ).segments || [];
 
-  const segments = rawSegments.map((seg) => ({
-    start: seg.start + timeOffset,
+  const localSegments = rawSegments.map((seg) => ({
+    start: seg.start,
     text: seg.text.trim(),
   }));
 
@@ -274,8 +322,8 @@ async function transcribeBuffer(
     (transcription as unknown as { duration?: number }).duration || 0;
 
   return {
-    text: formatSegments(segments),
-    segments,
+    text: formatSegments(localSegments),
+    localSegments,
     duration,
   };
 }

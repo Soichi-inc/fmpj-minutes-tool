@@ -24,3 +24,9 @@ export const MAX_AUDIO_FILE_SIZE = 200 * 1024 * 1024;
 
 /** Whisper API per-request limit */
 export const WHISPER_CHUNK_SIZE = 24 * 1024 * 1024; // 24MB with margin
+
+/** Max audio duration in minutes (1 meeting = up to 180 min) */
+export const MAX_AUDIO_DURATION_MINUTES = 180;
+
+/** Parallel Whisper API concurrency (avoid rate limit) */
+export const WHISPER_CONCURRENCY = 3;
