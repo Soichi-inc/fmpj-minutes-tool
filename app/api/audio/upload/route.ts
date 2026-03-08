@@ -26,7 +26,7 @@ export async function POST(request: NextRequest) {
             "audio/webm",
             "audio/mp4a-latm",
           ],
-          maximumSizeInBytes: 25 * 1024 * 1024, // 25MB
+          maximumSizeInBytes: 200 * 1024 * 1024, // 200MB
         };
       },
       onUploadCompleted: async () => {

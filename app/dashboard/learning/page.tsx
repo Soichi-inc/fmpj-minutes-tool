@@ -137,7 +137,7 @@ export default function LearningPage() {
     }
     if (file.size > MAX_AUDIO_FILE_SIZE) {
       setAudioError(
-        `ファイルサイズが25MBを超えています（${(file.size / 1024 / 1024).toFixed(1)}MB）`
+        `ファイルサイズが200MBを超えています（${(file.size / 1024 / 1024).toFixed(1)}MB）`
       );
       return;
     }
@@ -363,7 +363,7 @@ export default function LearningPage() {
                 <input {...getAudioInputProps()} />
                 <Upload className="h-8 w-8 mx-auto text-muted-foreground mb-2" />
                 <p className="text-sm">
-                  音声ファイルをドラッグ＆ドロップ（MP3, WAV, M4A / 最大25MB）
+                  音声ファイルをドラッグ＆ドロップ（MP3, WAV, M4A / 最大200MB）
                 </p>
               </div>
             )}

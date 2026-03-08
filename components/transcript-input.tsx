@@ -82,7 +82,7 @@ export function TranscriptInput({
     }
     if (file.size > MAX_AUDIO_FILE_SIZE) {
       setTranscriptionError(
-        `ファイルサイズが25MBを超えています（${(file.size / 1024 / 1024).toFixed(1)}MB）。MP3に変換するか分割してください。`
+        `ファイルサイズが200MBを超えています（${(file.size / 1024 / 1024).toFixed(1)}MB）。ファイルを分割してください。`
       );
       return;
     }
@@ -315,7 +315,7 @@ export function TranscriptInput({
                   音声ファイルをドラッグ＆ドロップ
                 </p>
                 <p className="text-xs text-muted-foreground mt-1">
-                  またはクリックして選択（MP3, WAV, M4A, WebM / 最大25MB）
+                  またはクリックして選択（MP3, WAV, M4A, WebM / 最大200MB）
                 </p>
               </div>
             )}
