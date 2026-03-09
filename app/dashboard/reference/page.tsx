@@ -154,7 +154,7 @@ export default function ReferencePage() {
   };
 
   return (
-    <div className="max-w-4xl mx-auto px-6 py-6">
+    <div className="max-w-4xl mx-auto px-6 py-8">
       <div className="flex items-center justify-between mb-6">
         <div>
           <h2 className="text-xl font-semibold">参考資料管理</h2>
@@ -172,7 +172,7 @@ export default function ReferencePage() {
             className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
             disabled={uploading}
           />
-          <Button disabled={uploading}>
+          <Button disabled={uploading} className="press-effect shadow-premium-sm">
             {uploading ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -213,8 +213,8 @@ export default function ReferencePage() {
           <p className="text-sm text-muted-foreground mt-2">読み込み中...</p>
         </div>
       ) : references.length === 0 ? (
-        <div className="text-center py-12 bg-muted/30 rounded-lg border border-dashed">
-          <FileText className="h-12 w-12 text-muted-foreground mx-auto mb-3" />
+        <div className="text-center py-16 bg-card rounded-xl border border-dashed shadow-premium-xs">
+          <FileText className="h-12 w-12 text-muted-foreground/30 mx-auto mb-3" />
           <p className="text-muted-foreground">参考資料がまだありません</p>
           <p className="text-sm text-muted-foreground mt-1">
             議案書やレジュメをアップロードすると、議事録生成時に参照できます
@@ -225,7 +225,7 @@ export default function ReferencePage() {
           {references.map((ref) => (
             <div
               key={ref.id}
-              className="flex items-center justify-between p-4 rounded-lg border bg-card hover:bg-accent/50 transition-colors"
+              className="flex items-center justify-between p-4 rounded-xl border bg-card shadow-premium-xs hover-lift transition-all"
             >
               <div className="flex items-center gap-3 min-w-0">
                 <FileText className="h-5 w-5 text-muted-foreground shrink-0" />

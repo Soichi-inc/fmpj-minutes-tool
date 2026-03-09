@@ -42,8 +42,13 @@ export function LoginForm() {
   };
 
   return (
-    <Card className="w-full max-w-md">
-      <CardHeader className="text-center">
+    <Card className="w-full max-w-md shadow-premium-xl rounded-xl relative overflow-hidden animate-fade-slide-up">
+      {/* Gradient accent bar */}
+      <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-primary" />
+      <CardHeader className="text-center pt-8 pb-2">
+        <div className="mx-auto mb-4 w-12 h-12 rounded-xl bg-gradient-primary flex items-center justify-center shadow-premium-md">
+          <Lock className="h-5 w-5 text-white" />
+        </div>
         <CardTitle className="text-xl font-semibold">
           {process.env.NEXT_PUBLIC_APP_NAME || "FMPJ議事録ツール"}
         </CardTitle>
@@ -51,7 +56,7 @@ export function LoginForm() {
           アクセスにはパスワードが必要です
         </p>
       </CardHeader>
-      <CardContent>
+      <CardContent className="pb-8">
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="password">パスワード</Label>
@@ -83,7 +88,11 @@ export function LoginForm() {
           {error && (
             <p className="text-sm text-destructive">{error}</p>
           )}
-          <Button type="submit" className="w-full" disabled={loading}>
+          <Button
+            type="submit"
+            className="w-full bg-gradient-primary hover:opacity-90 press-effect shadow-premium-md"
+            disabled={loading}
+          >
             {loading ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />

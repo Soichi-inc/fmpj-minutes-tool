@@ -73,7 +73,7 @@ export default function TemplatesPage() {
   };
 
   return (
-    <div className="max-w-6xl mx-auto px-6 py-6">
+    <div className="max-w-6xl mx-auto px-6 py-8">
       <div className="flex items-center justify-between mb-6">
         <div>
           <h2 className="text-xl font-semibold">フォーマットテンプレート</h2>
@@ -83,7 +83,7 @@ export default function TemplatesPage() {
           </p>
         </div>
         {!editing && (
-          <Button onClick={handleNew}>
+          <Button onClick={handleNew} className="press-effect shadow-premium-sm">
             <Plus className="mr-2 h-4 w-4" />
             新規テンプレート
           </Button>
@@ -91,7 +91,7 @@ export default function TemplatesPage() {
       </div>
 
       {editing ? (
-        <Card>
+        <Card className="rounded-xl shadow-premium-md">
           <CardHeader>
             <CardTitle className="text-lg">
               {isNew ? "新規テンプレート作成" : "テンプレート編集"}
@@ -201,12 +201,13 @@ export default function TemplatesPage() {
           </CardContent>
         </Card>
       ) : templates.length === 0 ? (
-        <Card>
-          <CardContent className="py-12 text-center">
+        <Card className="rounded-xl shadow-premium-xs">
+          <CardContent className="py-16 text-center">
+            <Plus className="h-12 w-12 text-muted-foreground/30 mx-auto mb-3" />
             <p className="text-muted-foreground mb-4">
               テンプレートがまだ登録されていません
             </p>
-            <Button variant="outline" onClick={handleNew}>
+            <Button variant="outline" onClick={handleNew} className="press-effect">
               <Plus className="mr-2 h-4 w-4" />
               最初のテンプレートを作成
             </Button>
@@ -215,7 +216,7 @@ export default function TemplatesPage() {
       ) : (
         <div className="grid gap-4">
           {templates.map((template) => (
-            <Card key={template.id}>
+            <Card key={template.id} className="rounded-xl shadow-premium-xs hover-lift">
               <CardContent className="py-4">
                 <div className="flex items-start justify-between">
                   <div className="space-y-1">

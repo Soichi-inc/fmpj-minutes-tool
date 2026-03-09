@@ -12,7 +12,7 @@ import {
 import { parseTranscript } from "@/lib/utils/transcript-parser";
 import { getTemplates, saveMinutesRecord } from "@/lib/store/storage";
 import { FormatTemplate } from "@/lib/store/types";
-import { Loader2, StopCircle } from "lucide-react";
+import { Loader2, StopCircle, Check } from "lucide-react";
 
 type Step = 1 | 2 | 3 | 4;
 
@@ -306,9 +306,9 @@ export default function DashboardPage() {
   };
 
   return (
-    <div className="max-w-6xl mx-auto px-6 py-6">
+    <div className="max-w-6xl mx-auto px-6 py-8">
       {/* Step indicator */}
-      <div className="flex items-center justify-center mb-8">
+      <div className="flex items-center justify-center mb-10">
         {STEP_LABELS.map((label, i) => {
           const stepNum = (i + 1) as Step;
           const isActive = step === stepNum;
@@ -316,24 +316,31 @@ export default function DashboardPage() {
           return (
             <div key={label} className="flex items-center">
               {i > 0 && (
-                <div
-                  className={`w-12 h-0.5 mx-1 ${
-                    isCompleted ? "bg-primary" : "bg-gray-200"
-                  }`}
-                />
+                <div className="w-12 h-0.5 mx-1 relative">
+                  <div className="absolute inset-0 bg-border rounded-full" />
+                  {isCompleted && (
+                    <div className="absolute inset-0 bg-primary rounded-full transition-all duration-500" />
+                  )}
+                </div>
               )}
               <div className="flex items-center gap-2">
                 <div
-                  className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-medium ${
-                    isActive || isCompleted
-                      ? "bg-primary text-primary-foreground"
-                      : "bg-gray-200 text-gray-500"
+                  className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-medium transition-all duration-300 ${
+                    isCompleted
+                      ? "bg-primary text-primary-foreground shadow-premium-sm"
+                      : isActive
+                        ? "bg-primary text-primary-foreground shadow-premium-md pulse-glow"
+                        : "bg-muted text-muted-foreground"
                   }`}
                 >
-                  {stepNum}
+                  {isCompleted ? (
+                    <Check className="h-3.5 w-3.5" />
+                  ) : (
+                    stepNum
+                  )}
                 </div>
                 <span
-                  className={`text-sm hidden sm:inline ${
+                  className={`text-sm hidden sm:inline transition-colors ${
                     isActive
                       ? "font-medium text-foreground"
                       : "text-muted-foreground"
@@ -350,27 +357,33 @@ export default function DashboardPage() {
       {/* Step content */}
       <div className="max-w-4xl mx-auto">
         {step === 1 && (
-          <TranscriptInput
-            meetingInfo={meetingInfo}
-            templates={templates}
-            onChange={setMeetingInfo}
-            onNext={() => setStep(2)}
-          />
+          <div className="animate-fade-slide-up">
+            <TranscriptInput
+              meetingInfo={meetingInfo}
+              templates={templates}
+              onChange={setMeetingInfo}
+              onNext={() => setStep(2)}
+            />
+          </div>
         )}
 
         {step === 2 && (
-          <SpeakerMapping
-            transcript={meetingInfo.transcript}
-            attendees={attendeesList}
-            onBack={() => setStep(1)}
-            onConfirm={handleSpeakerConfirm}
-          />
+          <div className="animate-fade-slide-up">
+            <SpeakerMapping
+              transcript={meetingInfo.transcript}
+              attendees={attendeesList}
+              onBack={() => setStep(1)}
+              onConfirm={handleSpeakerConfirm}
+            />
+          </div>
         )}
 
         {step === 3 && (
-          <div className="space-y-6">
-            <div className="text-center py-4">
-              <Loader2 className="h-8 w-8 animate-spin text-primary mx-auto mb-3" />
+          <div className="space-y-6 animate-fade-slide-up">
+            <div className="text-center py-6">
+              <div className="w-14 h-14 rounded-2xl bg-primary/10 flex items-center justify-center mx-auto mb-4 pulse-glow">
+                <Loader2 className="h-7 w-7 animate-spin text-primary" />
+              </div>
               <h3 className="text-lg font-medium">議事録を生成中...</h3>
               <p className="text-sm text-muted-foreground mt-1">
                 Claude AIが議事録を作成しています。しばらくお待ちください。
@@ -378,7 +391,7 @@ export default function DashboardPage() {
             </div>
 
             {streamingContent && (
-              <div className="border rounded-lg p-6 bg-white prose prose-sm max-w-none min-h-[200px]">
+              <div className="border rounded-xl p-6 bg-card shadow-premium-sm prose prose-sm max-w-none min-h-[200px]">
                 <pre className="whitespace-pre-wrap text-sm font-sans">
                   {streamingContent}
                 </pre>
@@ -386,13 +399,13 @@ export default function DashboardPage() {
             )}
 
             {error && (
-              <div className="bg-destructive/10 text-destructive p-4 rounded-lg text-sm">
+              <div className="bg-destructive/10 text-destructive p-4 rounded-xl text-sm">
                 <p className="font-medium">エラーが発生しました</p>
                 <p className="mt-1">{error}</p>
                 <Button
                   variant="outline"
                   size="sm"
-                  className="mt-3"
+                  className="mt-3 press-effect"
                   onClick={() => {
                     setError("");
                     setStep(2);
@@ -404,7 +417,7 @@ export default function DashboardPage() {
             )}
 
             <div className="flex justify-center">
-              <Button variant="outline" onClick={handleCancel}>
+              <Button variant="outline" onClick={handleCancel} className="press-effect">
                 <StopCircle className="mr-2 h-4 w-4" />
                 キャンセル
               </Button>
@@ -413,13 +426,15 @@ export default function DashboardPage() {
         )}
 
         {step === 4 && (
-          <MinutesViewer
-            content={generatedContent}
-            meetingType={meetingInfo.meetingType}
-            meetingName={meetingInfo.meetingName}
-            date={meetingInfo.date}
-            onReset={handleReset}
-          />
+          <div className="animate-fade-slide-up">
+            <MinutesViewer
+              content={generatedContent}
+              meetingType={meetingInfo.meetingType}
+              meetingName={meetingInfo.meetingName}
+              date={meetingInfo.date}
+              onReset={handleReset}
+            />
+          </div>
         )}
       </div>
     </div>

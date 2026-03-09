@@ -293,7 +293,7 @@ export default function LearningPage() {
   };
 
   return (
-    <div className="max-w-4xl mx-auto px-6 py-6 space-y-6">
+    <div className="max-w-4xl mx-auto px-6 py-8 space-y-6">
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-xl font-semibold flex items-center gap-2">
@@ -304,7 +304,7 @@ export default function LearningPage() {
             過去の議事録データを登録して、AI生成の品質を向上させます。
           </p>
         </div>
-        <Button onClick={() => setShowImport(!showImport)}>
+        <Button onClick={() => setShowImport(!showImport)} className="press-effect shadow-premium-sm">
           <Upload className="mr-2 h-4 w-4" />
           過去データをインポート
         </Button>
@@ -312,7 +312,7 @@ export default function LearningPage() {
 
       {/* Import form */}
       {showImport && (
-        <div className="border rounded-lg p-6 space-y-5 bg-white">
+        <div className="border rounded-xl p-6 space-y-5 bg-card shadow-premium-md">
           <h3 className="font-medium">過去データのインポート</h3>
 
           {/* Step 1: Meeting info */}
@@ -530,9 +530,9 @@ export default function LearningPage() {
         )}
 
         {entries.map((entry) => (
-          <div key={entry.id} className="border rounded-lg bg-white">
+          <div key={entry.id} className="border rounded-xl bg-card shadow-premium-xs hover-lift">
             <div
-              className="p-4 flex items-center justify-between cursor-pointer hover:bg-gray-50 transition-colors"
+              className="p-4 flex items-center justify-between cursor-pointer hover:bg-accent/30 transition-colors rounded-xl"
               onClick={() => handleExpand(entry.id)}
             >
               <div className="flex items-center gap-4">

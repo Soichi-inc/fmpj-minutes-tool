@@ -95,11 +95,11 @@ export function AttendeeInput({
               type="button"
               onClick={() => setActiveTab(i)}
               className={`
-                px-3 py-1.5 text-xs rounded-md border transition-colors
+                px-3 py-1.5 text-xs rounded-md border transition-all press-effect
                 ${
                   isActive
-                    ? "bg-primary text-primary-foreground border-primary"
-                    : "bg-background hover:bg-accent border-input"
+                    ? "bg-primary text-primary-foreground border-primary shadow-premium-xs"
+                    : "bg-card hover:bg-accent border-input"
                 }
               `}
             >

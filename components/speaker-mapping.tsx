@@ -82,11 +82,14 @@ export function SpeakerMapping({
           </p>
         </div>
         <div className="flex justify-between">
-          <Button variant="outline" onClick={onBack}>
+          <Button variant="outline" onClick={onBack} className="press-effect">
             <ArrowLeft className="mr-2 h-4 w-4" />
             戻る
           </Button>
-          <Button onClick={() => onConfirm({}, [])}>
+          <Button
+            onClick={() => onConfirm({}, [])}
+            className="bg-gradient-primary hover:opacity-90 press-effect shadow-premium-md"
+          >
             議事録を生成する
             <ArrowRight className="ml-2 h-4 w-4" />
           </Button>
@@ -140,11 +143,15 @@ export function SpeakerMapping({
       )}
 
       <div className="flex justify-between">
-        <Button variant="outline" onClick={onBack}>
+        <Button variant="outline" onClick={onBack} className="press-effect">
           <ArrowLeft className="mr-2 h-4 w-4" />
           戻る
         </Button>
-        <Button onClick={handleConfirm} disabled={!allMapped}>
+        <Button
+          onClick={handleConfirm}
+          disabled={!allMapped}
+          className="bg-gradient-primary hover:opacity-90 press-effect shadow-premium-md"
+        >
           議事録を生成する
           <ArrowRight className="ml-2 h-4 w-4" />
         </Button>
@@ -175,10 +182,10 @@ function SpeakerRow({
 
   return (
     <div
-      className={`flex items-center gap-4 p-3 rounded-lg border transition-colors ${
+      className={`flex items-center gap-4 p-3 rounded-xl border transition-all ${
         isExcluded
           ? "bg-muted/50 border-dashed opacity-60"
-          : "bg-card"
+          : "bg-card shadow-premium-xs hover:shadow-premium-sm"
       }`}
     >
       <div className="min-w-[140px]">
@@ -229,10 +236,10 @@ function SpeakerRow({
       <button
         type="button"
         onClick={onToggleExclude}
-        className={`shrink-0 px-3 py-1.5 rounded-md text-xs font-medium border transition-colors ${
+        className={`shrink-0 px-3 py-1.5 rounded-md text-xs font-medium border transition-all press-effect ${
           isExcluded
             ? "bg-primary text-primary-foreground border-primary hover:bg-primary/90"
-            : "bg-white text-muted-foreground border-gray-300 hover:border-destructive hover:text-destructive"
+            : "bg-card text-muted-foreground border-input hover:border-destructive hover:text-destructive"
         }`}
         title={isExcluded ? "除外を解除" : "この話者を除外"}
       >

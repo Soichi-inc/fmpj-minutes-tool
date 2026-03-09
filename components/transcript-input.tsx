@@ -165,101 +165,111 @@ export function TranscriptInput({
 
   return (
     <div className="space-y-6">
-      {/* Row 1: Meeting type + supplementary name */}
-      <div className="grid grid-cols-2 gap-4">
-        <MeetingTypeSelector
-          value={meetingInfo.meetingType}
-          onChange={(v) => update("meetingType", v)}
+      {/* Section: 会議情報 */}
+      <div className="bg-card rounded-xl border shadow-premium-sm p-6 space-y-5">
+        <div className="flex items-center gap-2 mb-1">
+          <div className="w-1.5 h-1.5 rounded-full bg-primary" />
+          <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">会議情報</h3>
+        </div>
+
+        {/* Row 1: Meeting type + supplementary name */}
+        <div className="grid grid-cols-2 gap-4">
+          <MeetingTypeSelector
+            value={meetingInfo.meetingType}
+            onChange={(v) => update("meetingType", v)}
+          />
+          <div className="space-y-2">
+            <Label htmlFor="meetingName">会議名（補足）</Label>
+            <Input
+              id="meetingName"
+              value={meetingInfo.meetingName}
+              onChange={(e) => update("meetingName", e.target.value)}
+              placeholder="例: 第10回、2026年3月度"
+            />
+            <p className="text-xs text-muted-foreground">
+              ヘッダー例: 「{meetingInfo.meetingName || "3月度"}{" "}
+              {meetingInfo.meetingType || "理事会"} 議事録」
+            </p>
+          </div>
+        </div>
+
+        {/* Row 2: Date, Location, Template */}
+        <div className="grid grid-cols-3 gap-4">
+          <div className="space-y-2">
+            <Label htmlFor="date">開催日</Label>
+            <Input
+              id="date"
+              type="date"
+              value={meetingInfo.date}
+              onChange={(e) => update("date", e.target.value)}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="location">開催場所</Label>
+            <Input
+              id="location"
+              value={meetingInfo.location}
+              onChange={(e) => update("location", e.target.value)}
+              placeholder="例: 連盟会議室"
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="templateId">フォーマットテンプレート</Label>
+            <select
+              id="templateId"
+              value={meetingInfo.templateId}
+              onChange={(e) => update("templateId", e.target.value)}
+              className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-xs transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+            >
+              <option value="">デフォルト（FMPJ標準）</option>
+              {templates.map((t) => (
+                <option key={t.id} value={t.id}>
+                  {t.name}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+
+        {/* Attendees */}
+        <AttendeeInput
+          meetingType={meetingInfo.meetingType}
+          categories={meetingInfo.attendeeCategories}
+          onCategoriesChange={(cats) =>
+            onChange({ ...meetingInfo, attendeeCategories: cats })
+          }
+          freeText={meetingInfo.attendees}
+          onFreeTextChange={(text) =>
+            onChange({ ...meetingInfo, attendees: text })
+          }
         />
-        <div className="space-y-2">
-          <Label htmlFor="meetingName">会議名（補足）</Label>
-          <Input
-            id="meetingName"
-            value={meetingInfo.meetingName}
-            onChange={(e) => update("meetingName", e.target.value)}
-            placeholder="例: 第10回、2026年3月度"
-          />
-          <p className="text-xs text-muted-foreground">
-            ヘッダー例: 「{meetingInfo.meetingName || "3月度"}{" "}
-            {meetingInfo.meetingType || "理事会"} 議事録」
-          </p>
-        </div>
+
+        {/* Reference materials */}
+        <ReferenceSelector
+          selectedIds={meetingInfo.selectedReferenceIds}
+          onChange={(ids) =>
+            onChange({ ...meetingInfo, selectedReferenceIds: ids })
+          }
+        />
       </div>
 
-      {/* Row 2: Date, Location, Template */}
-      <div className="grid grid-cols-3 gap-4">
-        <div className="space-y-2">
-          <Label htmlFor="date">開催日</Label>
-          <Input
-            id="date"
-            type="date"
-            value={meetingInfo.date}
-            onChange={(e) => update("date", e.target.value)}
-          />
+      {/* Section: 文字起こしデータ */}
+      <div className="bg-card rounded-xl border shadow-premium-sm p-6 space-y-4">
+        <div className="flex items-center gap-2 mb-1">
+          <div className="w-1.5 h-1.5 rounded-full bg-primary" />
+          <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">文字起こしデータ</h3>
+          <span className="text-destructive text-xs">*</span>
         </div>
-        <div className="space-y-2">
-          <Label htmlFor="location">開催場所</Label>
-          <Input
-            id="location"
-            value={meetingInfo.location}
-            onChange={(e) => update("location", e.target.value)}
-            placeholder="例: 連盟会議室"
-          />
-        </div>
-        <div className="space-y-2">
-          <Label htmlFor="templateId">フォーマットテンプレート</Label>
-          <select
-            id="templateId"
-            value={meetingInfo.templateId}
-            onChange={(e) => update("templateId", e.target.value)}
-            className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-xs transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-          >
-            <option value="">デフォルト（FMPJ標準）</option>
-            {templates.map((t) => (
-              <option key={t.id} value={t.id}>
-                {t.name}
-              </option>
-            ))}
-          </select>
-        </div>
-      </div>
 
-      {/* Attendees */}
-      <AttendeeInput
-        meetingType={meetingInfo.meetingType}
-        categories={meetingInfo.attendeeCategories}
-        onCategoriesChange={(cats) =>
-          onChange({ ...meetingInfo, attendeeCategories: cats })
-        }
-        freeText={meetingInfo.attendees}
-        onFreeTextChange={(text) =>
-          onChange({ ...meetingInfo, attendees: text })
-        }
-      />
-
-      {/* Reference materials */}
-      <ReferenceSelector
-        selectedIds={meetingInfo.selectedReferenceIds}
-        onChange={(ids) =>
-          onChange({ ...meetingInfo, selectedReferenceIds: ids })
-        }
-      />
-
-      {/* Transcript input with tabs */}
-      <div className="space-y-3">
-        <Label>
-          文字起こしデータ <span className="text-destructive">*</span>
-        </Label>
-
-        {/* Tab switcher */}
-        <div className="flex gap-1 border-b">
+        {/* Pill tab switcher */}
+        <div className="inline-flex bg-muted rounded-lg p-1 gap-1">
           <button
             type="button"
             onClick={() => setInputMode("text")}
-            className={`flex items-center gap-1.5 px-4 py-2 text-sm border-b-2 transition-colors ${
+            className={`flex items-center gap-1.5 px-4 py-2 text-sm rounded-md transition-all press-effect ${
               inputMode === "text"
-                ? "border-primary text-primary font-medium"
-                : "border-transparent text-muted-foreground hover:text-foreground"
+                ? "bg-card text-foreground font-medium shadow-premium-sm"
+                : "text-muted-foreground hover:text-foreground"
             }`}
           >
             <Type className="h-4 w-4" />
@@ -268,10 +278,10 @@ export function TranscriptInput({
           <button
             type="button"
             onClick={() => setInputMode("audio")}
-            className={`flex items-center gap-1.5 px-4 py-2 text-sm border-b-2 transition-colors ${
+            className={`flex items-center gap-1.5 px-4 py-2 text-sm rounded-md transition-all press-effect ${
               inputMode === "audio"
-                ? "border-primary text-primary font-medium"
-                : "border-transparent text-muted-foreground hover:text-foreground"
+                ? "bg-card text-foreground font-medium shadow-premium-sm"
+                : "text-muted-foreground hover:text-foreground"
             }`}
           >
             <FileAudio className="h-4 w-4" />
@@ -303,14 +313,16 @@ export function TranscriptInput({
             {!audioFile && !isTranscribing && (
               <div
                 {...getRootProps()}
-                className={`border-2 border-dashed rounded-lg p-8 text-center cursor-pointer transition-colors ${
+                className={`border-2 border-dashed rounded-xl p-8 text-center cursor-pointer transition-all ${
                   isDragActive
                     ? "border-primary bg-primary/5"
-                    : "border-input hover:border-primary/50"
+                    : "border-input hover:border-primary/50 hover:bg-accent/30"
                 }`}
               >
                 <input {...getInputProps()} />
-                <Upload className="h-10 w-10 mx-auto text-muted-foreground mb-3" />
+                <div className="w-12 h-12 rounded-xl bg-muted flex items-center justify-center mx-auto mb-3">
+                  <Upload className="h-5 w-5 text-muted-foreground" />
+                </div>
                 <p className="text-sm font-medium">
                   音声ファイルをドラッグ＆ドロップ
                 </p>
@@ -417,7 +429,11 @@ export function TranscriptInput({
       </div>
 
       <div className="flex justify-end">
-        <Button onClick={onNext} disabled={!canProceed}>
+        <Button
+          onClick={onNext}
+          disabled={!canProceed}
+          className="bg-gradient-primary hover:opacity-90 press-effect shadow-premium-md"
+        >
           次へ：話者を特定する
           <ArrowRight className="ml-2 h-4 w-4" />
         </Button>

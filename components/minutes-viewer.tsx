@@ -146,12 +146,13 @@ export function MinutesViewer({
   return (
     <div className="space-y-4">
       {/* Action buttons */}
-      <div className="flex flex-wrap gap-2 justify-end">
+      <div className="flex flex-wrap gap-2 justify-end bg-card rounded-xl border shadow-premium-xs p-3">
         <Button
           variant="outline"
           size="sm"
           onClick={handleWordDownload}
           disabled={exporting !== null}
+          className="press-effect"
         >
           {exporting === "docx" ? (
             <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -165,6 +166,7 @@ export function MinutesViewer({
           size="sm"
           onClick={handlePdfDownload}
           disabled={exporting !== null}
+          className="press-effect"
         >
           {exporting === "pdf" ? (
             <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -173,11 +175,11 @@ export function MinutesViewer({
           )}
           PDF（印刷）
         </Button>
-        <Button variant="outline" size="sm" onClick={downloadMarkdown}>
+        <Button variant="outline" size="sm" onClick={downloadMarkdown} className="press-effect">
           <Download className="mr-2 h-4 w-4" />
           Markdown
         </Button>
-        <Button variant="outline" size="sm" onClick={onReset}>
+        <Button variant="outline" size="sm" onClick={onReset} className="press-effect">
           <RotateCcw className="mr-2 h-4 w-4" />
           最初からやり直す
         </Button>
@@ -189,7 +191,9 @@ export function MinutesViewer({
         <div className="lg:col-span-2 space-y-3">
           <div className="flex items-center justify-between">
             <h3 className="font-medium flex items-center gap-2">
-              <FileText className="h-4 w-4" />
+              <div className="w-6 h-6 rounded-md bg-primary/10 flex items-center justify-center">
+                <FileText className="h-3.5 w-3.5 text-primary" />
+              </div>
               議事録
             </h3>
             <Button
@@ -210,7 +214,7 @@ export function MinutesViewer({
               )}
             </Button>
           </div>
-          <div className="border rounded-lg p-6 bg-white prose prose-sm max-w-none prose-headings:text-foreground prose-p:text-foreground prose-li:text-foreground prose-strong:text-foreground">
+          <div className="border rounded-xl p-6 bg-card shadow-premium-xs prose prose-sm max-w-none prose-headings:text-foreground prose-p:text-foreground prose-li:text-foreground prose-strong:text-foreground">
             <ReactMarkdown remarkPlugins={[remarkGfm]}>
               {minutesContent}
             </ReactMarkdown>
@@ -221,7 +225,9 @@ export function MinutesViewer({
         <div className="space-y-3">
           <div className="flex items-center justify-between">
             <h3 className="font-medium flex items-center gap-2">
-              <ListTodo className="h-4 w-4" />
+              <div className="w-6 h-6 rounded-md bg-primary/10 flex items-center justify-center">
+                <ListTodo className="h-3.5 w-3.5 text-primary" />
+              </div>
               ToDoリスト
             </h3>
             <Button
@@ -242,7 +248,7 @@ export function MinutesViewer({
               )}
             </Button>
           </div>
-          <div className="border rounded-lg p-6 bg-white prose prose-sm max-w-none prose-headings:text-foreground prose-p:text-foreground prose-li:text-foreground prose-td:text-foreground prose-th:text-foreground">
+          <div className="border rounded-xl p-6 bg-card shadow-premium-xs prose prose-sm max-w-none prose-headings:text-foreground prose-p:text-foreground prose-li:text-foreground prose-td:text-foreground prose-th:text-foreground">
             {todoContent ? (
               <ReactMarkdown remarkPlugins={[remarkGfm]}>
                 {todoContent}
@@ -261,18 +267,18 @@ export function MinutesViewer({
       {/* 学習データとして保存 */}
       <div className="space-y-3">
         {!isEditing && !saveSuccess && (
-          <div className="border rounded-lg p-4 bg-blue-50/50">
+          <div className="border rounded-xl p-4 bg-gradient-to-r from-primary/5 to-transparent">
             <div className="flex items-start gap-3">
-              <BookOpen className="h-5 w-5 text-blue-600 shrink-0 mt-0.5" />
+              <BookOpen className="h-5 w-5 text-primary shrink-0 mt-0.5" />
               <div className="flex-1">
-                <p className="text-sm font-medium text-blue-900">
+                <p className="text-sm font-medium text-foreground">
                   学習データとして保存
                 </p>
-                <p className="text-xs text-blue-700 mt-1">
+                <p className="text-xs text-muted-foreground mt-1">
                   AI生成結果を編集して確定版として保存すると、次回以降の議事録生成の品質が向上します。
                 </p>
               </div>
-              <Button size="sm" onClick={handleStartEditing}>
+              <Button size="sm" onClick={handleStartEditing} className="press-effect">
                 <Pencil className="mr-1.5 h-3.5 w-3.5" />
                 編集して保存
               </Button>
@@ -281,7 +287,7 @@ export function MinutesViewer({
         )}
 
         {isEditing && (
-          <div className="border rounded-lg p-4 space-y-3">
+          <div className="border rounded-xl p-4 space-y-3 shadow-premium-xs">
             <div className="flex items-center justify-between">
               <h4 className="text-sm font-medium flex items-center gap-2">
                 <Pencil className="h-4 w-4" />

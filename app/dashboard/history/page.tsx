@@ -115,7 +115,7 @@ export default function HistoryPage() {
   };
 
   return (
-    <div className="max-w-6xl mx-auto px-6 py-6">
+    <div className="max-w-6xl mx-auto px-6 py-8">
       <div className="mb-6">
         <h2 className="text-xl font-semibold">過去の議事録</h2>
         <p className="text-sm text-muted-foreground mt-1">
@@ -139,6 +139,7 @@ export default function HistoryPage() {
             variant={filterType === "" ? "default" : "outline"}
             size="sm"
             onClick={() => setFilterType("")}
+            className={`rounded-full press-effect ${filterType === "" ? "shadow-premium-sm" : ""}`}
           >
             すべて
           </Button>
@@ -153,6 +154,7 @@ export default function HistoryPage() {
               onClick={() =>
                 setFilterType(filterType === type ? "" : type)
               }
+              className={`rounded-full press-effect ${filterType === type ? "shadow-premium-sm" : ""}`}
             >
               {type}
             </Button>
@@ -162,8 +164,9 @@ export default function HistoryPage() {
 
       {/* Records list */}
       {filtered.length === 0 ? (
-        <Card>
-          <CardContent className="py-12 text-center">
+        <Card className="rounded-xl shadow-premium-xs">
+          <CardContent className="py-16 text-center">
+            <FileText className="h-12 w-12 text-muted-foreground/30 mx-auto mb-3" />
             <p className="text-muted-foreground">
               {records.length === 0
                 ? "まだ議事録が生成されていません"
@@ -177,7 +180,7 @@ export default function HistoryPage() {
             const isExpanded = expandedId === record.id;
             const isExporting = exportingId === record.id;
             return (
-              <Card key={record.id}>
+              <Card key={record.id} className="rounded-xl shadow-premium-xs hover-lift">
                 <CardContent className="py-4">
                   {/* Summary row */}
                   <div
@@ -235,7 +238,7 @@ export default function HistoryPage() {
                             <Download className="h-4 w-4" />
                           )}
                         </Button>
-                        <div className="absolute right-0 top-full mt-1 bg-white border rounded-md shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-20 min-w-[140px]">
+                        <div className="absolute right-0 top-full mt-1 bg-popover border rounded-lg shadow-premium-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-20 min-w-[140px]">
                           <button
                             className="w-full text-left px-3 py-2 text-sm hover:bg-accent flex items-center gap-2"
                             onClick={(e) => {

@@ -5,7 +5,7 @@ import "./globals.css";
 const notoSansJP = Noto_Sans_JP({
   variable: "--font-noto-sans-jp",
   subsets: ["latin"],
-  weight: ["400", "500", "600", "700"],
+  weight: ["300", "400", "500", "600", "700"],
 });
 
 const appName = process.env.NEXT_PUBLIC_APP_NAME || "FMPJ議事録ツール";

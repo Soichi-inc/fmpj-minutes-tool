@@ -63,10 +63,10 @@ export function MeetingTypeSelector({
             key={type.id}
             type="button"
             onClick={() => handleSelect(type.id)}
-            className={`px-4 py-2 rounded-lg border text-sm font-medium transition-colors ${
+            className={`px-4 py-2 rounded-lg border text-sm font-medium transition-all press-effect ${
               selectedId === type.id
-                ? "bg-primary text-primary-foreground border-primary"
-                : "bg-white text-gray-700 border-gray-300 hover:border-primary/50"
+                ? "bg-primary text-primary-foreground border-primary shadow-premium-sm"
+                : "bg-card text-foreground border-input hover:border-primary/50"
             }`}
           >
             {type.label}

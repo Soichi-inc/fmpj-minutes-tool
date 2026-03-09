@@ -87,9 +87,9 @@ export function ReferenceSelector({
           return (
             <label
               key={ref.id}
-              className={`flex items-center gap-3 p-2 rounded-md cursor-pointer transition-colors ${
+              className={`flex items-center gap-3 p-2 rounded-lg cursor-pointer transition-all ${
                 isSelected
-                  ? "bg-primary/10 border border-primary/30"
+                  ? "bg-primary/8 border border-primary/25 shadow-premium-xs"
                   : "hover:bg-accent border border-transparent"
               }`}
             >
@@ -97,7 +97,7 @@ export function ReferenceSelector({
                 type="checkbox"
                 checked={isSelected}
                 onChange={() => toggleReference(ref.id)}
-                className="rounded border-gray-300"
+                className="rounded border-input"
               />
               <FileText className="h-4 w-4 text-muted-foreground shrink-0" />
               <div className="min-w-0 flex-1">
