@@ -11,7 +11,7 @@ import {
 } from "@/lib/utils/speaker-detector";
 import { parseTranscript } from "@/lib/utils/transcript-parser";
 import { getTemplates, saveMinutesRecord } from "@/lib/store/storage";
-import { FormatTemplate, MeetingInfo } from "@/lib/store/types";
+import { FormatTemplate, MeetingInfo, SpeakerEntry } from "@/lib/store/types";
 import { Loader2, StopCircle, Check } from "lucide-react";
 
 type Step = 1 | 2 | 3 | 4;
@@ -260,7 +260,7 @@ export default function DashboardPage() {
   );
 
   const handleSpeakerConfirm = (
-    mapping: Record<string, string>,
+    mapping: Record<string, SpeakerEntry>,
     excludedLabels: string[]
   ) => {
     let cleaned = parseTranscript(meetingInfo.transcript);

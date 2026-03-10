@@ -2,7 +2,11 @@ export interface DetectedSpeaker {
   id: string;
   label: string;
   count: number;
+  /** 最初の発言の冒頭テキスト（話者特定の手がかり用） */
+  firstUtterance: string;
 }
+
+const MAX_UTTERANCE_LENGTH = 80;
 
 /**
  * Detect unique speakers from transcript text.
@@ -13,10 +17,11 @@ export interface DetectedSpeaker {
  */
 export function detectSpeakers(transcript: string): DetectedSpeaker[] {
   const speakerCounts = new Map<string, number>();
+  const speakerFirstUtterance = new Map<string, string>();
 
   const lines = transcript.split("\n");
-  for (const line of lines) {
-    const trimmed = line.trim();
+  for (let i = 0; i < lines.length; i++) {
+    const trimmed = lines[i].trim();
     const match = trimmed.match(/^(Speaker\s*\d+|話者\s*\d+)/i);
     if (match) {
       const speaker = match[1].replace(/\s+/g, " ").trim();
@@ -25,6 +30,26 @@ export function detectSpeakers(transcript: string): DetectedSpeaker[] {
         return m.charAt(0).toUpperCase() + m.slice(1).toLowerCase();
       });
       speakerCounts.set(normalized, (speakerCounts.get(normalized) || 0) + 1);
+
+      // 最初の発言テキストを取得（まだ未取得の場合）
+      if (!speakerFirstUtterance.has(normalized)) {
+        // ラベル行の残りテキスト or 次の行から発言テキストを収集
+        const afterLabel = trimmed.replace(/^(Speaker\s*\d+|話者\s*\d+)\s*\d{0,2}:?\d{0,2}\s*/i, "").trim();
+        const utteranceLines: string[] = [];
+        if (afterLabel) {
+          utteranceLines.push(afterLabel);
+        }
+        // 次の行以降から発言テキストを収集
+        for (let j = i + 1; j < lines.length; j++) {
+          const nextLine = lines[j].trim();
+          if (!nextLine) break; // 空行で終了
+          if (nextLine.match(/^(Speaker\s*\d+|話者\s*\d+)/i)) break; // 次の話者で終了
+          utteranceLines.push(nextLine);
+          if (utteranceLines.join(" ").length >= MAX_UTTERANCE_LENGTH) break;
+        }
+        const utterance = utteranceLines.join(" ").slice(0, MAX_UTTERANCE_LENGTH);
+        speakerFirstUtterance.set(normalized, utterance + (utteranceLines.join(" ").length > MAX_UTTERANCE_LENGTH ? "..." : ""));
+      }
     }
   }
 
@@ -33,6 +58,7 @@ export function detectSpeakers(transcript: string): DetectedSpeaker[] {
       id: label.toLowerCase().replace(/\s+/g, "-"),
       label,
       count,
+      firstUtterance: speakerFirstUtterance.get(label) || "",
     }))
     .sort((a, b) => {
       // Sort numerically by speaker number
@@ -83,11 +109,13 @@ export function filterExcludedSpeakers(
 }
 
 /**
- * Replace speaker labels with real names in transcript text.
+ * Replace speaker labels with real names (+ title) in transcript text.
+ * Supports both simple string mapping and SpeakerEntry mapping.
+ * Title is concatenated directly: "板垣事務局長", "田中代表取締役社長"
  */
 export function replaceSpeakers(
   transcript: string,
-  mapping: Record<string, string>
+  mapping: Record<string, string | { name: string; title: string }>
 ): string {
   let result = transcript;
   // Sort by label length descending to avoid partial replacements
@@ -95,12 +123,18 @@ export function replaceSpeakers(
     ([a], [b]) => b.length - a.length
   );
 
-  for (const [label, name] of entries) {
+  for (const [label, entry] of entries) {
+    const name = typeof entry === "string" ? entry : entry.name;
+    const title = typeof entry === "string" ? "" : entry.title;
     if (!name) continue;
+
+    // Build display name: "板垣事務局長" (name + title directly concatenated)
+    const displayName = title ? `${name}${title}` : name;
+
     // Replace at the start of lines (with optional timestamp)
     const escaped = label.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
     const pattern = new RegExp(`^${escaped}`, "gim");
-    result = result.replace(pattern, name);
+    result = result.replace(pattern, displayName);
   }
 
   return result;

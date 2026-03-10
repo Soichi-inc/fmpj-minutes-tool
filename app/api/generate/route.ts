@@ -3,6 +3,7 @@ import { list } from "@vercel/blob";
 import { getAnthropicClient } from "@/lib/anthropic";
 import { getSystemPrompt, buildUserMessage } from "@/lib/prompts/system-prompt";
 import { verifyAuth } from "@/lib/auth";
+import { TermEntry } from "@/lib/store/types";
 
 export const maxDuration = 120;
 
@@ -35,35 +36,43 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 学習データから過去の確定版を取得してsampleOutputに追加
+    // 学習データから過去の確定版 + 用語辞書を取得
     let enrichedSampleOutput = sampleOutput || "";
+    let allTerminology: TermEntry[] = [];
     const MAX_LEARNING_SAMPLES = 2;
-    const MAX_BLOBS_TO_CHECK = 10;
+    const MAX_BLOBS_TO_CHECK = 20;
     if (meetingType) {
       try {
         const { blobs } = await list({ prefix: "learning/" });
         const learningPairs: Array<{
           meetingType: string;
           finalContent: string;
+          terminology?: TermEntry[];
           createdAt: string;
         }> = [];
 
-        // パフォーマンス最適化: 全blobではなく最大10件を3件ずつバッチ処理
+        // 全blobから用語辞書を集約しつつ、サンプル出力用のデータも収集
         const blobsToCheck = blobs.slice(0, MAX_BLOBS_TO_CHECK);
         for (let i = 0; i < blobsToCheck.length; i += 3) {
-          if (learningPairs.length >= MAX_LEARNING_SAMPLES) break;
           const batch = blobsToCheck.slice(i, i + 3);
           const results = await Promise.allSettled(
             batch.map(async (blob) => {
               const res = await fetch(blob.url);
               if (!res.ok) return null;
               const data = await res.json();
-              if (data.meetingType === meetingType && data.finalContent) {
-                return {
-                  meetingType: data.meetingType as string,
-                  finalContent: data.finalContent as string,
-                  createdAt: data.createdAt as string,
-                };
+              if (data.meetingType === meetingType) {
+                // 用語辞書を集約（全件から）
+                if (Array.isArray(data.terminology)) {
+                  allTerminology.push(...data.terminology);
+                }
+                if (data.finalContent) {
+                  return {
+                    meetingType: data.meetingType as string,
+                    finalContent: data.finalContent as string,
+                    terminology: data.terminology as TermEntry[] | undefined,
+                    createdAt: data.createdAt as string,
+                  };
+                }
               }
               return null;
             })
@@ -75,7 +84,16 @@ export async function POST(request: NextRequest) {
           }
         }
 
-        // 直近2件を取得
+        // 用語辞書の重複排除
+        const termSet = new Set<string>();
+        allTerminology = allTerminology.filter((t) => {
+          const key = `${t.term}:${t.category}`;
+          if (termSet.has(key)) return false;
+          termSet.add(key);
+          return true;
+        });
+
+        // サンプル出力は直近2件
         learningPairs.sort(
           (a, b) =>
             new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
@@ -108,6 +126,7 @@ export async function POST(request: NextRequest) {
       attendeeCategories: attendeeCategories || undefined,
       customFormatInstructions: customFormatInstructions || undefined,
       sampleOutput: enrichedSampleOutput || undefined,
+      terminology: allTerminology.length > 0 ? allTerminology : undefined,
     });
 
     const userMessage = buildUserMessage(transcript, referenceTexts);

@@ -21,6 +21,17 @@ export interface MinutesRecord {
   createdAt: string;
 }
 
+export interface SpeakerEntry {
+  name: string;
+  title: string; // 肩書き（例: 代表取締役社長、事務局長）
+}
+
+export interface TermEntry {
+  term: string;
+  reading?: string;
+  category: string; // 人名, 組織名, プロジェクト名, 専門用語, その他
+}
+
 export interface LearningPair {
   id: string;
   meetingType: string;
@@ -28,6 +39,7 @@ export interface LearningPair {
   date: string;
   originalContent: string; // AI生成ドラフト (A) or 文字起こし
   finalContent: string; // 確定版 (A')
+  terminology?: TermEntry[]; // 自動抽出された用語辞書
   createdAt: string;
 }
 

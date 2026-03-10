@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { put } from "@vercel/blob";
 import { verifyAuth } from "@/lib/auth";
+import { extractTerminology } from "@/lib/terminology-extractor";
+import { TermEntry } from "@/lib/store/types";
 
 export const runtime = "nodejs";
 
@@ -20,6 +22,14 @@ export async function POST(request: NextRequest) {
     );
   }
 
+  // 用語辞書を自動抽出（失敗しても保存は続行）
+  let terminology: TermEntry[] = [];
+  try {
+    terminology = await extractTerminology(finalContent);
+  } catch {
+    // 抽出失敗時は空配列のまま続行
+  }
+
   const id = crypto.randomUUID();
   const data = {
     id,
@@ -28,6 +38,7 @@ export async function POST(request: NextRequest) {
     date: date || "",
     originalContent: originalContent || "",
     finalContent,
+    terminology,
     createdAt: new Date().toISOString(),
   };
 

@@ -10,13 +10,14 @@ import {
   DetectedSpeaker,
   detectSpeakers,
 } from "@/lib/utils/speaker-detector";
+import { SpeakerEntry } from "@/lib/store/types";
 
 interface SpeakerMappingProps {
   transcript: string;
   attendees: string[];
   onBack: () => void;
   onConfirm: (
-    mapping: Record<string, string>,
+    mapping: Record<string, SpeakerEntry>,
     excludedLabels: string[]
   ) => void;
 }
@@ -31,17 +32,27 @@ export function SpeakerMapping({
 
   // Initial state is computed from speakers; parent should use key={transcript}
   // to force remount when transcript changes
-  const [mapping, setMapping] = useState<Record<string, string>>(() => {
-    const initial: Record<string, string> = {};
+  const [mapping, setMapping] = useState<Record<string, SpeakerEntry>>(() => {
+    const initial: Record<string, SpeakerEntry> = {};
     for (const speaker of speakers) {
-      initial[speaker.label] = "";
+      initial[speaker.label] = { name: "", title: "" };
     }
     return initial;
   });
   const [excluded, setExcluded] = useState<Record<string, boolean>>({});
 
-  const updateMapping = (speakerLabel: string, name: string) => {
-    setMapping((prev) => ({ ...prev, [speakerLabel]: name }));
+  const updateName = (speakerLabel: string, name: string) => {
+    setMapping((prev) => ({
+      ...prev,
+      [speakerLabel]: { ...prev[speakerLabel], name },
+    }));
+  };
+
+  const updateTitle = (speakerLabel: string, title: string) => {
+    setMapping((prev) => ({
+      ...prev,
+      [speakerLabel]: { ...prev[speakerLabel], title },
+    }));
   };
 
   const toggleExclude = (speakerLabel: string) => {
@@ -53,7 +64,7 @@ export function SpeakerMapping({
 
   // Only require names for non-excluded speakers
   const allMapped = speakers.every(
-    (s) => excluded[s.label] || mapping[s.label]?.trim().length > 0
+    (s) => excluded[s.label] || mapping[s.label]?.name?.trim().length > 0
   );
 
   const excludedSpeakers = speakers.filter((s) => excluded[s.label]);
@@ -111,7 +122,7 @@ export function SpeakerMapping({
           <Label className="text-xs text-muted-foreground">出席者候補</Label>
           <div className="flex flex-wrap gap-2">
             {attendees.map((name) => (
-              <AttendeeChip key={name} name={name} mapping={mapping} onSelect={(speakerLabel) => updateMapping(speakerLabel, name)} speakers={speakers} />
+              <AttendeeChip key={name} name={name} mapping={mapping} onSelect={(speakerLabel) => updateName(speakerLabel, name)} speakers={speakers} />
             ))}
           </div>
         </div>
@@ -122,8 +133,10 @@ export function SpeakerMapping({
           <SpeakerRow
             key={speaker.id}
             speaker={speaker}
-            value={mapping[speaker.label] || ""}
-            onChange={(name) => updateMapping(speaker.label, name)}
+            nameValue={mapping[speaker.label]?.name || ""}
+            titleValue={mapping[speaker.label]?.title || ""}
+            onNameChange={(name) => updateName(speaker.label, name)}
+            onTitleChange={(title) => updateTitle(speaker.label, title)}
             attendees={attendees}
             isExcluded={!!excluded[speaker.label]}
             onToggleExclude={() => toggleExclude(speaker.label)}
@@ -160,94 +173,117 @@ export function SpeakerMapping({
 
 function SpeakerRow({
   speaker,
-  value,
-  onChange,
+  nameValue,
+  titleValue,
+  onNameChange,
+  onTitleChange,
   attendees,
   isExcluded,
   onToggleExclude,
 }: {
   speaker: DetectedSpeaker;
-  value: string;
-  onChange: (name: string) => void;
+  nameValue: string;
+  titleValue: string;
+  onNameChange: (name: string) => void;
+  onTitleChange: (title: string) => void;
   attendees: string[];
   isExcluded: boolean;
   onToggleExclude: () => void;
 }) {
   const [showSuggestions, setShowSuggestions] = useState(false);
   const filtered = attendees.filter(
-    (a) => value && a.toLowerCase().includes(value.toLowerCase())
+    (a) => nameValue && a.toLowerCase().includes(nameValue.toLowerCase())
   );
 
   return (
     <div
-      className={`flex items-center gap-4 p-3 rounded-xl border transition-all ${
+      className={`p-4 rounded-xl border transition-all ${
         isExcluded
           ? "bg-muted/50 border-dashed opacity-60"
           : "bg-card shadow-premium-xs hover:shadow-premium-sm"
       }`}
     >
-      <div className="min-w-[140px]">
-        <span className={`font-medium ${isExcluded ? "line-through" : ""}`}>
-          {speaker.label}
-        </span>
-        <span className="text-xs text-muted-foreground ml-2">
-          ({speaker.count}回発言)
-        </span>
+      <div className="flex items-center justify-between mb-2">
+        <div className="flex-1 min-w-0 mr-3">
+          <div>
+            <span className={`font-medium ${isExcluded ? "line-through" : ""}`}>
+              {speaker.label}
+            </span>
+            <span className="text-xs text-muted-foreground ml-2">
+              ({speaker.count}回発言)
+            </span>
+          </div>
+          {speaker.firstUtterance && (
+            <p className="text-xs text-muted-foreground mt-1 truncate" title={speaker.firstUtterance}>
+              「{speaker.firstUtterance}」
+            </p>
+          )}
+        </div>
+        <button
+          type="button"
+          onClick={onToggleExclude}
+          className={`shrink-0 px-3 py-1.5 rounded-md text-xs font-medium border transition-all press-effect ${
+            isExcluded
+              ? "bg-primary text-primary-foreground border-primary hover:bg-primary/90"
+              : "bg-card text-muted-foreground border-input hover:border-destructive hover:text-destructive"
+          }`}
+          title={isExcluded ? "除外を解除" : "この話者を除外"}
+        >
+          {isExcluded ? "除外を解除" : (
+            <>
+              <X className="inline h-3 w-3 mr-1" />
+              除外
+            </>
+          )}
+        </button>
       </div>
 
       {isExcluded ? (
-        <div className="flex-1 text-sm text-muted-foreground italic">
+        <div className="text-sm text-muted-foreground italic">
           この話者の発言は議事録から除外されます
         </div>
       ) : (
-        <div className="flex-1 relative">
-          <Input
-            value={value}
-            onChange={(e) => {
-              onChange(e.target.value);
-              setShowSuggestions(true);
-            }}
-            onFocus={() => setShowSuggestions(true)}
-            onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
-            placeholder="実名を入力..."
-          />
-          {showSuggestions && filtered.length > 0 && value && (
-            <div className="absolute z-10 top-full left-0 right-0 mt-1 bg-popover border rounded-md shadow-md">
-              {filtered.map((name) => (
-                <button
-                  key={name}
-                  className="w-full text-left px-3 py-2 text-sm hover:bg-accent"
-                  onMouseDown={(e) => {
-                    e.preventDefault();
-                    onChange(name);
-                    setShowSuggestions(false);
-                  }}
-                >
-                  {name}
-                </button>
-              ))}
-            </div>
-          )}
+        <div className="flex gap-3">
+          <div className="flex-1 relative">
+            <Label className="text-xs text-muted-foreground mb-1 block">名前</Label>
+            <Input
+              value={nameValue}
+              onChange={(e) => {
+                onNameChange(e.target.value);
+                setShowSuggestions(true);
+              }}
+              onFocus={() => setShowSuggestions(true)}
+              onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
+              placeholder="実名を入力..."
+            />
+            {showSuggestions && filtered.length > 0 && nameValue && (
+              <div className="absolute z-10 top-full left-0 right-0 mt-1 bg-popover border rounded-md shadow-md">
+                {filtered.map((name) => (
+                  <button
+                    key={name}
+                    className="w-full text-left px-3 py-2 text-sm hover:bg-accent"
+                    onMouseDown={(e) => {
+                      e.preventDefault();
+                      onNameChange(name);
+                      setShowSuggestions(false);
+                    }}
+                  >
+                    {name}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+          <div className="w-48">
+            <Label className="text-xs text-muted-foreground mb-1 block">肩書き</Label>
+            <Input
+              value={titleValue}
+              onChange={(e) => onTitleChange(e.target.value)}
+              placeholder="例: 事務局長"
+            />
+          </div>
         </div>
       )}
-
-      <button
-        type="button"
-        onClick={onToggleExclude}
-        className={`shrink-0 px-3 py-1.5 rounded-md text-xs font-medium border transition-all press-effect ${
-          isExcluded
-            ? "bg-primary text-primary-foreground border-primary hover:bg-primary/90"
-            : "bg-card text-muted-foreground border-input hover:border-destructive hover:text-destructive"
-        }`}
-        title={isExcluded ? "除外を解除" : "この話者を除外"}
-      >
-        {isExcluded ? "除外を解除" : (
-          <>
-            <X className="inline h-3 w-3 mr-1" />
-            除外
-          </>
-        )}
-      </button>
     </div>
   );
 }
@@ -259,14 +295,14 @@ function AttendeeChip({
   speakers,
 }: {
   name: string;
-  mapping: Record<string, string>;
+  mapping: Record<string, SpeakerEntry>;
   onSelect: (speakerLabel: string) => void;
   speakers: DetectedSpeaker[];
 }) {
-  const isUsed = Object.values(mapping).includes(name);
+  const isUsed = Object.values(mapping).some((entry) => entry.name === name);
   // Find first unmapped speaker
   const firstUnmapped = speakers.find(
-    (s) => !mapping[s.label]?.trim()
+    (s) => !mapping[s.label]?.name?.trim()
   );
 
   return (

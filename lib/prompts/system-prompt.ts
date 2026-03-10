@@ -1,3 +1,5 @@
+import { TermEntry } from "@/lib/store/types";
+
 export interface MinutesContext {
   meetingName: string;
   meetingType: string;
@@ -9,6 +11,8 @@ export interface MinutesContext {
   customFormatInstructions?: string;
   sampleOutput?: string;
   referenceTexts?: { fileName: string; text: string }[];
+  /** 過去の学習データから集約された用語辞書 */
+  terminology?: TermEntry[];
 }
 
 /**
@@ -38,6 +42,29 @@ function buildAttendeeBlock(context: MinutesContext): string {
   return `出席者：${attendeesList}\n欠席者：（該当があれば記載、不明な場合は「なし」）`;
 }
 
+/**
+ * 用語辞書ブロックを組み立てる。
+ * 過去の学習データから抽出された固有名詞・専門用語を一覧化。
+ */
+function buildTerminologyBlock(terminology: TermEntry[]): string {
+  if (terminology.length === 0) return "";
+
+  const lines = terminology.map((t) => {
+    let entry = `- ${t.term}`;
+    if (t.reading) entry += `（${t.reading}）`;
+    entry += ` [${t.category}]`;
+    return entry;
+  });
+
+  return `\n\n═══════════════════════════════════════════════
+■ 用語辞書（過去の議事録から抽出）
+═══════════════════════════════════════════════
+以下の固有名詞・専門用語は正確に使用してください。
+文字起こしに類似の音が出現した場合、この辞書の表記を優先してください。
+
+${lines.join("\n")}`;
+}
+
 export function getSystemPrompt(context: MinutesContext): string {
   const attendeeBlock = buildAttendeeBlock(context);
 
@@ -53,6 +80,9 @@ export function getSystemPrompt(context: MinutesContext): string {
 - 固有名詞（人名、団体名、イベント名、楽曲名、法律名等）は文字起こしの内容を**正確に転記**する
 - 数値（金額、日付、人数、割合等）は**一切丸めず**、文字起こしの通りに記載する
 - 判断困難な箇所は【要確認】と注記する
+- 音声認識で誤変換の可能性がある固有名詞・人名・組織名には **【要確認: ○○】** を付記する（例: 【要確認: 山田？】）
+- 用語辞書（後述）に載っていない新出の固有名詞は特に注意し、文脈から推測できない場合は【要確認】を付ける
+- 用語辞書に一致する語がある場合は、文字起こしの表記よりも用語辞書の表記を優先する
 
 ═══════════════════════════════════════════════
 ■ 全体構成（この順序を厳守すること）
@@ -133,6 +163,11 @@ ${attendeeBlock}
 6. ページ番号は付与しない`;
 
   let prompt = basePrompt;
+
+  // 用語辞書を追加
+  if (context.terminology && context.terminology.length > 0) {
+    prompt += buildTerminologyBlock(context.terminology);
+  }
 
   if (context.customFormatInstructions) {
     prompt += `\n\n## 追加フォーマット指示\n以下の追加指示にも従ってください:\n\n${context.customFormatInstructions}`;
