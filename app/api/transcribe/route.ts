@@ -1,5 +1,4 @@
 import { NextRequest } from "next/server";
-import { cookies } from "next/headers";
 import { getOpenAIClient } from "@/lib/openai";
 import { del } from "@vercel/blob";
 import {
@@ -7,6 +6,7 @@ import {
   MAX_AUDIO_DURATION_MINUTES,
   WHISPER_CONCURRENCY,
 } from "@/lib/audio-constants";
+import { verifyAuth } from "@/lib/auth";
 
 export const runtime = "nodejs";
 export const maxDuration = 300; // Vercel Pro max (5 min function timeout)
@@ -14,9 +14,7 @@ export const maxDuration = 300; // Vercel Pro max (5 min function timeout)
 const WHISPER_API_LIMIT = WHISPER_CHUNK_SIZE;
 
 export async function POST(request: NextRequest) {
-  const cookieStore = await cookies();
-  const auth = cookieStore.get("fmpj-auth");
-  if (!auth || auth.value !== "authenticated") {
+  if (!(await verifyAuth())) {
     return new Response(JSON.stringify({ error: "未認証" }), {
       status: 401,
       headers: { "Content-Type": "application/json" },
@@ -306,20 +304,16 @@ async function transcribeBuffer(
     timestamp_granularities: ["segment"],
   });
 
-  const rawSegments: Array<{ start: number; text: string }> =
-    (
-      transcription as unknown as {
-        segments?: Array<{ start: number; end: number; text: string }>;
-      }
-    ).segments || [];
+  // verbose_json レスポンスは TranscriptionVerbose 型で
+  // segments と duration が正規プロパティとして定義されている
+  const rawSegments = transcription.segments || [];
 
   const localSegments = rawSegments.map((seg) => ({
     start: seg.start,
     text: seg.text.trim(),
   }));
 
-  const duration =
-    (transcription as unknown as { duration?: number }).duration || 0;
+  const duration = transcription.duration || 0;
 
   return {
     text: formatSegments(localSegments),
@@ -355,6 +349,12 @@ function getContentType(fileName?: string): string {
   return map[ext || ""] || "audio/mpeg";
 }
 
+/**
+ * Whisperのセグメントをタイムスタンプ付きテキストに変換する。
+ * 注意: Whisper APIは話者分離（speaker diarization）に対応していないため、
+ * すべてのセグメントが "Speaker 1" としてラベル付けされる。
+ * 話者の識別はフロントエンドの SpeakerMapping コンポーネントでユーザーが手動で行う。
+ */
 function formatSegments(
   segments: Array<{ start: number; text: string }>
 ): string {

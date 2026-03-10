@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -32,13 +32,9 @@ function emptyTemplate(): FormatTemplate {
 }
 
 export default function TemplatesPage() {
-  const [templates, setTemplates] = useState<FormatTemplate[]>([]);
+  const [templates, setTemplates] = useState<FormatTemplate[]>(() => getTemplates());
   const [editing, setEditing] = useState<FormatTemplate | null>(null);
   const [isNew, setIsNew] = useState(false);
-
-  useEffect(() => {
-    setTemplates(getTemplates());
-  }, []);
 
   const handleNew = () => {
     setEditing(emptyTemplate());

@@ -183,12 +183,15 @@ export default function LearningPage() {
       if (!reader) throw new Error("ストリームを開始できません");
 
       const decoder = new TextDecoder();
+      let sseBuffer = "";
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
 
-        const chunk = decoder.decode(value, { stream: true });
-        const lines = chunk.split("\n");
+        sseBuffer += decoder.decode(value, { stream: true });
+        const lines = sseBuffer.split("\n");
+        // Keep the last (possibly incomplete) line in the buffer
+        sseBuffer = lines.pop() || "";
 
         for (const line of lines) {
           if (!line.startsWith("data: ")) continue;
@@ -210,6 +213,20 @@ export default function LearningPage() {
             if (e instanceof SyntaxError) continue;
             throw e;
           }
+        }
+      }
+      // Process any remaining data in buffer
+      if (sseBuffer.startsWith("data: ")) {
+        try {
+          const parsed = JSON.parse(sseBuffer.slice(6));
+          if (parsed.status === "done") {
+            setTranscribedText(parsed.transcript);
+            setTranscriptionStatus("文字起こし完了");
+          } else if (parsed.status === "error") {
+            throw new Error(parsed.error);
+          }
+        } catch (e) {
+          if (!(e instanceof SyntaxError)) throw e;
         }
       }
     } catch (err) {

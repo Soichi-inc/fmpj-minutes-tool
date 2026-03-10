@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -28,18 +28,17 @@ export function SpeakerMapping({
   onConfirm,
 }: SpeakerMappingProps) {
   const speakers = useMemo(() => detectSpeakers(transcript), [transcript]);
-  const [mapping, setMapping] = useState<Record<string, string>>({});
-  const [excluded, setExcluded] = useState<Record<string, boolean>>({});
 
-  // Initialize mapping with empty values
-  useEffect(() => {
+  // Initial state is computed from speakers; parent should use key={transcript}
+  // to force remount when transcript changes
+  const [mapping, setMapping] = useState<Record<string, string>>(() => {
     const initial: Record<string, string> = {};
     for (const speaker of speakers) {
       initial[speaker.label] = "";
     }
-    setMapping(initial);
-    setExcluded({});
-  }, [speakers]);
+    return initial;
+  });
+  const [excluded, setExcluded] = useState<Record<string, boolean>>({});
 
   const updateMapping = (speakerLabel: string, name: string) => {
     setMapping((prev) => ({ ...prev, [speakerLabel]: name }));
@@ -57,7 +56,6 @@ export function SpeakerMapping({
     (s) => excluded[s.label] || mapping[s.label]?.trim().length > 0
   );
 
-  const activeSpeakers = speakers.filter((s) => !excluded[s.label]);
   const excludedSpeakers = speakers.filter((s) => excluded[s.label]);
 
   const handleConfirm = () => {

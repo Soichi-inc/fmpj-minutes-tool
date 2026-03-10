@@ -1,5 +1,5 @@
-import { cookies } from "next/headers";
 import { list } from "@vercel/blob";
+import { verifyAuth } from "@/lib/auth";
 
 export const runtime = "nodejs";
 
@@ -13,10 +13,7 @@ interface ReferenceMetadata {
 }
 
 export async function GET() {
-  // Auth check
-  const cookieStore = await cookies();
-  const auth = cookieStore.get("fmpj-auth");
-  if (!auth || auth.value !== "authenticated") {
+  if (!(await verifyAuth())) {
     return Response.json({ error: "未認証" }, { status: 401 });
   }
 

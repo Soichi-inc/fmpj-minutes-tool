@@ -1,11 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
-import { cookies } from "next/headers";
 import { handleUpload, type HandleUploadBody } from "@vercel/blob/client";
+import { verifyAuth } from "@/lib/auth";
 
 export async function POST(request: NextRequest) {
-  const cookieStore = await cookies();
-  const auth = cookieStore.get("fmpj-auth");
-  if (!auth || auth.value !== "authenticated") {
+  if (!(await verifyAuth())) {
     return NextResponse.json({ error: "未認証" }, { status: 401 });
   }
 

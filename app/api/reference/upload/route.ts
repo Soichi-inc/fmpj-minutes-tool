@@ -1,15 +1,12 @@
 import { NextRequest } from "next/server";
-import { cookies } from "next/headers";
 import { put } from "@vercel/blob";
 import { extractText, SUPPORTED_EXTENSIONS, MAX_FILE_SIZE } from "@/lib/file-parser";
+import { verifyAuth } from "@/lib/auth";
 
 export const runtime = "nodejs";
 
 export async function POST(request: NextRequest) {
-  // Auth check
-  const cookieStore = await cookies();
-  const auth = cookieStore.get("fmpj-auth");
-  if (!auth || auth.value !== "authenticated") {
+  if (!(await verifyAuth())) {
     return Response.json({ error: "未認証" }, { status: 401 });
   }
 

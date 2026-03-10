@@ -31,6 +31,18 @@ export interface LearningPair {
   createdAt: string;
 }
 
+export interface MeetingInfo {
+  meetingName: string;
+  meetingType: string;
+  date: string;
+  location: string;
+  attendees: string;
+  attendeeCategories: Record<string, string>;
+  transcript: string;
+  templateId: string;
+  selectedReferenceIds: string[];
+}
+
 export const DEFAULT_MEETING_TYPES = [
   "理事会",
   "委員会",

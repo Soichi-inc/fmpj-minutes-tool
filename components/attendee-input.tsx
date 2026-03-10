@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 
@@ -37,6 +37,7 @@ export function AttendeeInput({
   onFreeTextChange,
 }: AttendeeInputProps) {
   const [activeTab, setActiveTab] = useState(0);
+  const [prevMeetingType, setPrevMeetingType] = useState(meetingType);
 
   // 会議種別に応じたカテゴリ一覧
   const tabCategories =
@@ -46,10 +47,11 @@ export function AttendeeInput({
         ? EXECUTIVE_CATEGORIES
         : null; // null = フリーテキストモード
 
-  // 会議種別変更時に最初のタブにリセット
-  useEffect(() => {
+  // 会議種別変更時に最初のタブにリセット（React 19推奨パターン）
+  if (meetingType !== prevMeetingType) {
+    setPrevMeetingType(meetingType);
     setActiveTab(0);
-  }, [meetingType]);
+  }
 
   // フリーテキストモード（その他の会議種別）
   if (!tabCategories) {

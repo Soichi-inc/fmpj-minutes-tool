@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { COOKIE_NAME, verifySessionToken } from "@/lib/auth";
 
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
@@ -8,9 +9,15 @@ export function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  // Check auth cookie
-  const authCookie = request.cookies.get("fmpj-auth");
-  if (!authCookie || authCookie.value !== "authenticated") {
+  // Check auth cookie with signature verification
+  const authCookie = request.cookies.get(COOKIE_NAME);
+  const secret = process.env.APP_PASSWORD;
+
+  if (
+    !authCookie ||
+    !secret ||
+    !verifySessionToken(authCookie.value, secret)
+  ) {
     return NextResponse.redirect(new URL("/", request.url));
   }
 

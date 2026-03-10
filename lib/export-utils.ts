@@ -1,90 +1,16 @@
 import { marked } from "marked";
+import { generateDocx } from "./docx-builder";
 
 /**
- * Convert markdown to styled HTML suitable for Word/PDF export.
+ * Convert markdown to styled HTML (used for PDF print).
  */
 async function markdownToHtml(markdownContent: string): Promise<string> {
   return await marked(markdownContent, { gfm: true, breaks: true });
 }
 
 /**
- * FMPJ議事録フォーマット用のCSSスタイル（Word用）
- * Font: MS 明朝, Size: 10.5pt, Line-height: 1.5
- * ※ text-align: justify は Word で文字が均等割り付けされるため使用しない
- */
-const FMPJ_WORD_STYLE = `
-  @page {
-    size: A4;
-    margin: 25mm 25mm 25mm 25mm;
-  }
-  body {
-    font-family: "MS 明朝", "ＭＳ 明朝", "MS Mincho", serif;
-    font-size: 10.5pt;
-    line-height: 1.5;
-    color: #000;
-    text-align: left;
-  }
-  h1 {
-    font-family: "MS 明朝", "ＭＳ 明朝", "MS Mincho", serif;
-    font-size: 14pt;
-    font-weight: bold;
-    text-align: center;
-    margin: 0 0 2pt;
-    line-height: 1.5;
-  }
-  h2 {
-    font-family: "MS 明朝", "ＭＳ 明朝", "MS Mincho", serif;
-    font-size: 12pt;
-    font-weight: bold;
-    text-align: center;
-    margin: 0 0 10pt;
-    line-height: 1.5;
-  }
-  h3 {
-    font-family: "MS 明朝", "ＭＳ 明朝", "MS Mincho", serif;
-    font-size: 10.5pt;
-    font-weight: bold;
-    text-align: left;
-    margin: 8pt 0 4pt;
-    line-height: 1.5;
-  }
-  p {
-    margin: 0 0 2pt;
-    text-align: left;
-    line-height: 1.5;
-  }
-  ul, ol {
-    margin: 0 0 2pt;
-    padding-left: 18pt;
-    line-height: 1.5;
-  }
-  li {
-    margin: 0;
-    text-align: left;
-    line-height: 1.5;
-  }
-  table {
-    border-collapse: collapse;
-    width: 100%;
-    margin: 6pt 0;
-    font-size: 9.5pt;
-    line-height: 1.4;
-  }
-  th, td {
-    border: 1px solid #000;
-    padding: 3pt 6pt;
-    text-align: left;
-    vertical-align: top;
-  }
-  th {
-    background-color: #f0f0f0;
-    font-weight: bold;
-  }
-  strong { font-weight: bold; }
-`;
-
-/**
  * PDF印刷用のCSSスタイル
+ * Font: MS 明朝, Size: 10.5pt, A4, 余白25mm
  */
 const FMPJ_PDF_STYLE = `
   @page {
@@ -164,50 +90,21 @@ const FMPJ_PDF_STYLE = `
 `;
 
 /**
- * Download markdown content as a Word (.doc) file.
- * Uses HTML with MS Word XML declarations for native Word compatibility.
+ * Download markdown content as a proper Word (.docx) file.
+ * Uses JSZip to generate valid Office Open XML.
  */
 export async function downloadAsWord(
   markdownContent: string,
   fileName: string
 ) {
-  const htmlBody = await markdownToHtml(markdownContent);
-
-  const wordHtml = `
-<html xmlns:o="urn:schemas-microsoft-com:office:office"
-      xmlns:w="urn:schemas-microsoft-com:office:word"
-      xmlns="http://www.w3.org/TR/REC-html40">
-<head>
-<meta charset="utf-8">
-<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
-<!--[if gte mso 9]>
-<xml>
-  <w:WordDocument>
-    <w:View>Print</w:View>
-    <w:Zoom>100</w:Zoom>
-    <w:DoNotOptimizeForBrowser/>
-  </w:WordDocument>
-</xml>
-<![endif]-->
-<style>
-${FMPJ_WORD_STYLE}
-</style>
-</head>
-<body>
-${htmlBody}
-</body>
-</html>`;
-
-  // BOM + HTML for proper encoding in Word
-  const blob = new Blob(["\ufeff" + wordHtml], {
-    type: "application/msword;charset=utf-8",
-  });
-  triggerDownload(blob, `${fileName}.doc`);
+  const blob = await generateDocx(markdownContent);
+  triggerDownload(blob, `${fileName}.docx`);
 }
 
 /**
  * Download markdown content as a PDF file.
  * Uses a hidden iframe with print dialog for reliable Japanese text rendering.
+ * ブラウザ側では印刷ダイアログ経由が日本語フォント対応の最も確実な方法。
  */
 export async function downloadAsPdf(
   markdownContent: string,
@@ -248,7 +145,6 @@ ${htmlBody}
     await new Promise<void>((resolve) => {
       if (iframe.contentWindow) {
         iframe.contentWindow.onload = () => resolve();
-        // Fallback timeout in case onload doesn't fire
         setTimeout(resolve, 1000);
       } else {
         setTimeout(resolve, 1000);

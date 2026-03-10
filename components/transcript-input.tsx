@@ -17,7 +17,7 @@ import {
 } from "lucide-react";
 import { useDropzone } from "react-dropzone";
 import { upload } from "@vercel/blob/client";
-import { FormatTemplate } from "@/lib/store/types";
+import { FormatTemplate, MeetingInfo } from "@/lib/store/types";
 import { MeetingTypeSelector } from "@/components/meeting-type-selector";
 import { ReferenceSelector } from "@/components/reference-selector";
 import { AttendeeInput } from "@/components/attendee-input";
@@ -26,18 +26,6 @@ import {
   MAX_AUDIO_FILE_SIZE,
   SUPPORTED_AUDIO_EXTENSIONS,
 } from "@/lib/audio-constants";
-
-interface MeetingInfo {
-  meetingName: string;
-  meetingType: string;
-  date: string;
-  location: string;
-  attendees: string;
-  attendeeCategories: Record<string, string>;
-  transcript: string;
-  templateId: string;
-  selectedReferenceIds: string[];
-}
 
 interface TranscriptInputProps {
   meetingInfo: MeetingInfo;
@@ -126,12 +114,15 @@ export function TranscriptInput({
       if (!reader) throw new Error("ストリームを開始できません");
 
       const decoder = new TextDecoder();
+      let sseBuffer = "";
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
 
-        const chunk = decoder.decode(value, { stream: true });
-        const lines = chunk.split("\n");
+        sseBuffer += decoder.decode(value, { stream: true });
+        const lines = sseBuffer.split("\n");
+        // Keep the last (possibly incomplete) line in the buffer
+        sseBuffer = lines.pop() || "";
 
         for (const line of lines) {
           if (!line.startsWith("data: ")) continue;
@@ -152,6 +143,22 @@ export function TranscriptInput({
             if (e instanceof SyntaxError) continue;
             throw e;
           }
+        }
+      }
+      // Process any remaining data in buffer
+      if (sseBuffer.startsWith("data: ")) {
+        try {
+          const parsed = JSON.parse(sseBuffer.slice(6));
+          if (parsed.status === "done") {
+            update("transcript", parsed.transcript);
+            setTranscriptionDone(true);
+            setTranscriptionStatus("文字起こし完了");
+            setInputMode("text");
+          } else if (parsed.status === "error") {
+            throw new Error(parsed.error);
+          }
+        } catch (e) {
+          if (!(e instanceof SyntaxError)) throw e;
         }
       }
     } catch (err) {

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useCallback, useEffect } from "react";
+import { useState, useRef, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { TranscriptInput } from "@/components/transcript-input";
 import { SpeakerMapping } from "@/components/speaker-mapping";
@@ -11,22 +11,10 @@ import {
 } from "@/lib/utils/speaker-detector";
 import { parseTranscript } from "@/lib/utils/transcript-parser";
 import { getTemplates, saveMinutesRecord } from "@/lib/store/storage";
-import { FormatTemplate } from "@/lib/store/types";
+import { FormatTemplate, MeetingInfo } from "@/lib/store/types";
 import { Loader2, StopCircle, Check } from "lucide-react";
 
 type Step = 1 | 2 | 3 | 4;
-
-export interface MeetingInfo {
-  meetingName: string;
-  meetingType: string;
-  date: string;
-  location: string;
-  attendees: string;
-  attendeeCategories: Record<string, string>;
-  transcript: string;
-  templateId: string;
-  selectedReferenceIds: string[];
-}
 
 const STEP_LABELS = ["会議情報入力", "話者特定", "生成中", "結果表示"];
 
@@ -77,7 +65,7 @@ function flattenAttendees(
 
 export default function DashboardPage() {
   const [step, setStep] = useState<Step>(1);
-  const [templates, setTemplates] = useState<FormatTemplate[]>([]);
+  const [templates] = useState<FormatTemplate[]>(() => getTemplates());
   const [meetingInfo, setMeetingInfo] = useState<MeetingInfo>({
     meetingName: "",
     meetingType: "",
@@ -93,10 +81,7 @@ export default function DashboardPage() {
   const [streamingContent, setStreamingContent] = useState("");
   const [error, setError] = useState("");
   const abortControllerRef = useRef<AbortController | null>(null);
-
-  useEffect(() => {
-    setTemplates(getTemplates());
-  }, []);
+  const streamingContentRef = useRef("");
 
   const attendeesList = flattenAttendees(
     meetingInfo.meetingType,
@@ -112,6 +97,7 @@ export default function DashboardPage() {
     async (processedTranscript: string) => {
       setStep(3);
       setStreamingContent("");
+      streamingContentRef.current = "";
       setError("");
 
       const controller = new AbortController();
@@ -180,56 +166,9 @@ export default function DashboardPage() {
 
         const decoder = new TextDecoder();
         let accumulated = "";
+        let sseBuffer = "";
 
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
-
-          const chunk = decoder.decode(value, { stream: true });
-          const lines = chunk.split("\n");
-
-          for (const line of lines) {
-            if (line.startsWith("data: ")) {
-              const data = line.slice(6);
-              if (data === "[DONE]") {
-                setGeneratedContent(accumulated);
-                setStep(4);
-                // Save to history
-                saveMinutesRecord({
-                  id: crypto.randomUUID(),
-                  meetingName: meetingInfo.meetingName,
-                  meetingType:
-                    meetingInfo.meetingType ||
-                    selectedTemplate?.meetingType ||
-                    "その他",
-                  date: meetingInfo.date,
-                  location: meetingInfo.location,
-                  attendees: attendeesList,
-                  content: accumulated,
-                  templateId: meetingInfo.templateId || null,
-                  createdAt: new Date().toISOString(),
-                });
-                return;
-              }
-              try {
-                const parsed = JSON.parse(data);
-                if (parsed.error) {
-                  throw new Error(parsed.error);
-                }
-                if (parsed.text) {
-                  accumulated += parsed.text;
-                  setStreamingContent(accumulated);
-                }
-              } catch (e) {
-                if (e instanceof SyntaxError) continue;
-                throw e;
-              }
-            }
-          }
-        }
-
-        if (accumulated) {
-          setGeneratedContent(accumulated);
+        const saveRecord = (content: string) => {
           saveMinutesRecord({
             id: crypto.randomUUID(),
             meetingName: meetingInfo.meetingName,
@@ -240,16 +179,72 @@ export default function DashboardPage() {
             date: meetingInfo.date,
             location: meetingInfo.location,
             attendees: attendeesList,
-            content: accumulated,
+            content,
             templateId: meetingInfo.templateId || null,
             createdAt: new Date().toISOString(),
           });
+        };
+
+        const processSSELine = (line: string): boolean => {
+          if (!line.startsWith("data: ")) return false;
+          const data = line.slice(6);
+          if (data === "[DONE]") {
+            setGeneratedContent(accumulated);
+            setStep(4);
+            saveRecord(accumulated);
+            return true; // signal done
+          }
+          try {
+            const parsed = JSON.parse(data);
+            if (parsed.error) {
+              throw new Error(parsed.error);
+            }
+            if (parsed.text) {
+              accumulated += parsed.text;
+              streamingContentRef.current = accumulated;
+              setStreamingContent(accumulated);
+            }
+          } catch (e) {
+            if (e instanceof SyntaxError) return false;
+            throw e;
+          }
+          return false;
+        };
+
+        let isDone = false;
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+
+          sseBuffer += decoder.decode(value, { stream: true });
+          const lines = sseBuffer.split("\n");
+          // Keep the last (possibly incomplete) line in the buffer
+          sseBuffer = lines.pop() || "";
+
+          for (const line of lines) {
+            if (processSSELine(line)) {
+              isDone = true;
+              break;
+            }
+          }
+          if (isDone) return;
+        }
+
+        // Process any remaining data in buffer
+        if (sseBuffer.trim()) {
+          processSSELine(sseBuffer);
+        }
+
+        if (accumulated && !isDone) {
+          setGeneratedContent(accumulated);
+          saveRecord(accumulated);
           setStep(4);
         }
       } catch (err) {
         if (err instanceof DOMException && err.name === "AbortError") {
-          if (streamingContent) {
-            setGeneratedContent(streamingContent);
+          const currentContent = streamingContentRef.current;
+          if (currentContent) {
+            setGeneratedContent(currentContent);
             setStep(4);
           } else {
             setStep(2);
@@ -261,7 +256,7 @@ export default function DashboardPage() {
         setError(message);
       }
     },
-    [meetingInfo, attendeesList, selectedTemplate, streamingContent]
+    [meetingInfo, attendeesList, selectedTemplate]
   );
 
   const handleSpeakerConfirm = (
@@ -370,6 +365,7 @@ export default function DashboardPage() {
         {step === 2 && (
           <div className="animate-fade-slide-up">
             <SpeakerMapping
+              key={meetingInfo.transcript}
               transcript={meetingInfo.transcript}
               attendees={attendeesList}
               onBack={() => setStep(1)}

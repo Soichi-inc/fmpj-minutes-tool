@@ -2,6 +2,7 @@ import { FormatTemplate, MinutesRecord } from "./types";
 
 const TEMPLATES_KEY = "fmpj-templates";
 const MINUTES_KEY = "fmpj-minutes";
+const MAX_MINUTES_RECORDS = 50; // Limit to prevent localStorage overflow
 
 // --- Templates ---
 
@@ -23,12 +24,12 @@ export function saveTemplate(template: FormatTemplate): void {
   } else {
     templates.push(template);
   }
-  localStorage.setItem(TEMPLATES_KEY, JSON.stringify(templates));
+  safeSetItem(TEMPLATES_KEY, JSON.stringify(templates));
 }
 
 export function deleteTemplate(id: string): void {
   const templates = getTemplates().filter((t) => t.id !== id);
-  localStorage.setItem(TEMPLATES_KEY, JSON.stringify(templates));
+  safeSetItem(TEMPLATES_KEY, JSON.stringify(templates));
 }
 
 // --- Minutes Records ---
@@ -46,10 +47,42 @@ export function getMinutesRecords(): MinutesRecord[] {
 export function saveMinutesRecord(record: MinutesRecord): void {
   const records = getMinutesRecords();
   records.unshift(record); // newest first
-  localStorage.setItem(MINUTES_KEY, JSON.stringify(records));
+  // Keep only the most recent records to prevent localStorage overflow
+  const trimmed = records.slice(0, MAX_MINUTES_RECORDS);
+  safeSetItem(MINUTES_KEY, JSON.stringify(trimmed));
 }
 
 export function deleteMinutesRecord(id: string): void {
   const records = getMinutesRecords().filter((r) => r.id !== id);
-  localStorage.setItem(MINUTES_KEY, JSON.stringify(records));
+  safeSetItem(MINUTES_KEY, JSON.stringify(records));
+}
+
+// --- Helper ---
+
+/**
+ * Safely write to localStorage with quota error handling.
+ * If QuotaExceededError occurs, try removing oldest minutes records first.
+ */
+function safeSetItem(key: string, value: string): void {
+  try {
+    localStorage.setItem(key, value);
+  } catch (e) {
+    if (
+      e instanceof DOMException &&
+      (e.name === "QuotaExceededError" || e.code === 22)
+    ) {
+      // Try to free space by trimming minutes history
+      try {
+        const records = getMinutesRecords();
+        if (records.length > 5) {
+          const trimmed = records.slice(0, Math.floor(records.length / 2));
+          localStorage.setItem(MINUTES_KEY, JSON.stringify(trimmed));
+          // Retry the original save
+          localStorage.setItem(key, value);
+        }
+      } catch {
+        console.warn("localStorage quota exceeded and could not free space");
+      }
+    }
+  }
 }

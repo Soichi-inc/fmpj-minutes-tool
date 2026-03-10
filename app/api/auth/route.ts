@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
+import { createSessionToken, COOKIE_NAME } from "@/lib/auth";
 
 export async function POST(request: NextRequest) {
   try {
@@ -20,9 +21,11 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Set auth cookie
+    // HMAC署名付きセッショントークンを生成
+    const token = createSessionToken(appPassword);
+
     const cookieStore = await cookies();
-    cookieStore.set("fmpj-auth", "authenticated", {
+    cookieStore.set(COOKIE_NAME, token, {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
       sameSite: "strict",
@@ -41,6 +44,6 @@ export async function POST(request: NextRequest) {
 
 export async function DELETE() {
   const cookieStore = await cookies();
-  cookieStore.delete("fmpj-auth");
+  cookieStore.delete(COOKIE_NAME);
   return NextResponse.json({ success: true });
 }

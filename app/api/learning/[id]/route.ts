@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { cookies } from "next/headers";
+import { verifyAuth } from "@/lib/auth";
 import { list, del } from "@vercel/blob";
 
 export const runtime = "nodejs";
@@ -8,9 +8,7 @@ export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const cookieStore = await cookies();
-  const auth = cookieStore.get("fmpj-auth");
-  if (!auth || auth.value !== "authenticated") {
+  if (!(await verifyAuth())) {
     return NextResponse.json({ error: "未認証" }, { status: 401 });
   }
 
@@ -46,9 +44,7 @@ export async function DELETE(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const cookieStore = await cookies();
-  const auth = cookieStore.get("fmpj-auth");
-  if (!auth || auth.value !== "authenticated") {
+  if (!(await verifyAuth())) {
     return NextResponse.json({ error: "未認証" }, { status: 401 });
   }
 

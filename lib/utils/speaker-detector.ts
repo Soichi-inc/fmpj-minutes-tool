@@ -12,7 +12,6 @@ export interface DetectedSpeaker {
  * - "話者 1" (Japanese)
  */
 export function detectSpeakers(transcript: string): DetectedSpeaker[] {
-  const speakerPattern = /^(Speaker\s*\d+|話者\s*\d+)/gim;
   const speakerCounts = new Map<string, number>();
 
   const lines = transcript.split("\n");

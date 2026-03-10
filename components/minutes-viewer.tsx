@@ -92,20 +92,27 @@ export function MinutesViewer({
   const copyToClipboard = async (text: string, type: "minutes" | "todo") => {
     try {
       await navigator.clipboard.writeText(text);
-      if (type === "minutes") {
-        setCopiedMinutes(true);
-        setTimeout(() => setCopiedMinutes(false), 2000);
-      } else {
-        setCopiedTodo(true);
-        setTimeout(() => setCopiedTodo(false), 2000);
-      }
     } catch {
+      // Fallback for older browsers or non-HTTPS contexts
       const textArea = document.createElement("textarea");
       textArea.value = text;
+      textArea.style.cssText = "position:fixed;left:-9999px;top:0;opacity:0;";
       document.body.appendChild(textArea);
+      textArea.focus();
       textArea.select();
-      document.execCommand("copy");
+      try {
+        document.execCommand("copy");
+      } catch {
+        // Copy failed silently
+      }
       document.body.removeChild(textArea);
+    }
+    if (type === "minutes") {
+      setCopiedMinutes(true);
+      setTimeout(() => setCopiedMinutes(false), 2000);
+    } else {
+      setCopiedTodo(true);
+      setTimeout(() => setCopiedTodo(false), 2000);
     }
   };
 
@@ -159,7 +166,7 @@ export function MinutesViewer({
           ) : (
             <Download className="mr-2 h-4 w-4" />
           )}
-          Word
+          Word (.docx)
         </Button>
         <Button
           variant="outline"

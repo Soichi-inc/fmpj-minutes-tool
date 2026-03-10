@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { cookies } from "next/headers";
 import { extractText } from "@/lib/file-parser";
+import { verifyAuth } from "@/lib/auth";
 
 export const runtime = "nodejs";
 
@@ -9,9 +9,7 @@ export const runtime = "nodejs";
  * Accepts FormData with a file field.
  */
 export async function POST(request: NextRequest) {
-  const cookieStore = await cookies();
-  const auth = cookieStore.get("fmpj-auth");
-  if (!auth || auth.value !== "authenticated") {
+  if (!(await verifyAuth())) {
     return NextResponse.json({ error: "未認証" }, { status: 401 });
   }
 

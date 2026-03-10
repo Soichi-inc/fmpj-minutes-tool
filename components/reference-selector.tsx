@@ -23,7 +23,6 @@ export function ReferenceSelector({
 }: ReferenceSelectorProps) {
   const [references, setReferences] = useState<ReferenceFile[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
 
   useEffect(() => {
     const fetchReferences = async () => {
@@ -116,9 +115,6 @@ export function ReferenceSelector({
         <p className="text-xs text-muted-foreground">
           {selectedIds.length}件の資料が選択されています。議事録生成時にAIが参照します。
         </p>
-      )}
-      {error && (
-        <p className="text-xs text-destructive">{error}</p>
       )}
     </div>
   );
