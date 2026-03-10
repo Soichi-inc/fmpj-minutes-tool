@@ -37,6 +37,32 @@ interface LearningEntry {
   finalLength: number;
 }
 
+/**
+ * エントリを meetingType ごとにグループ化。
+ * 理事会・常任理事会を先頭に、その他は50音順。
+ */
+function groupByMeetingType(
+  entries: LearningEntry[]
+): { meetingType: string; items: LearningEntry[] }[] {
+  const map = new Map<string, LearningEntry[]>();
+  for (const entry of entries) {
+    const key = entry.meetingType || "その他";
+    if (!map.has(key)) map.set(key, []);
+    map.get(key)!.push(entry);
+  }
+  // 優先順: 理事会 → 常任理事会 → その他（50音順）
+  const priority = ["理事会", "常任理事会"];
+  const sorted = [...map.entries()].sort(([a], [b]) => {
+    const ai = priority.indexOf(a);
+    const bi = priority.indexOf(b);
+    if (ai !== -1 && bi !== -1) return ai - bi;
+    if (ai !== -1) return -1;
+    if (bi !== -1) return 1;
+    return a.localeCompare(b, "ja");
+  });
+  return sorted.map(([meetingType, items]) => ({ meetingType, items }));
+}
+
 export default function LearningPage() {
   const [entries, setEntries] = useState<LearningEntry[]>([]);
   const [loading, setLoading] = useState(true);
@@ -524,7 +550,7 @@ export default function LearningPage() {
 
       <Separator />
 
-      {/* List of existing learning entries */}
+      {/* List of existing learning entries grouped by meetingType */}
       <div className="space-y-3">
         <h3 className="font-medium">
           保存済み学習データ（{entries.length}件）
@@ -546,78 +572,91 @@ export default function LearningPage() {
           </div>
         )}
 
-        {entries.map((entry) => (
-          <div key={entry.id} className="border rounded-xl bg-card shadow-premium-xs hover-lift">
-            <div
-              className="p-4 flex items-center justify-between cursor-pointer hover:bg-accent/30 transition-colors rounded-xl"
-              onClick={() => handleExpand(entry.id)}
-            >
-              <div className="flex items-center gap-4">
-                <BookOpen className="h-4 w-4 text-muted-foreground" />
-                <div>
-                  <p className="text-sm font-medium">
-                    {entry.meetingType}
-                    {entry.meetingName ? ` - ${entry.meetingName}` : ""}
-                  </p>
-                  <p className="text-xs text-muted-foreground">
-                    {entry.date || "日付未設定"} ・ 確定版{" "}
-                    {entry.finalLength.toLocaleString()}文字
-                    {entry.originalLength > 0 &&
-                      ` ・ 元データ ${entry.originalLength.toLocaleString()}文字`}
-                    ・ {new Date(entry.createdAt).toLocaleDateString("ja-JP")}
-                    登録
-                  </p>
-                </div>
+        {!loading &&
+          entries.length > 0 &&
+          groupByMeetingType(entries).map(({ meetingType, items }) => (
+            <div key={meetingType} className="space-y-2">
+              <div className="flex items-center gap-2 pt-2">
+                <div className="w-1.5 h-1.5 rounded-full bg-primary" />
+                <h4 className="text-sm font-semibold text-muted-foreground">
+                  {meetingType}
+                  <span className="ml-1.5 font-normal">（{items.length}件）</span>
+                </h4>
               </div>
-              <div className="flex items-center gap-2">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleDelete(entry.id);
-                  }}
-                >
-                  <Trash2 className="h-4 w-4 text-destructive" />
-                </Button>
-                {expandedId === entry.id ? (
-                  <ChevronUp className="h-4 w-4 text-muted-foreground" />
-                ) : (
-                  <ChevronDown className="h-4 w-4 text-muted-foreground" />
-                )}
-              </div>
-            </div>
 
-            {expandedId === entry.id && (
-              <div className="border-t px-4 py-3 space-y-3">
-                {!expandedData ? (
-                  <div className="text-center py-4">
-                    <Loader2 className="h-5 w-5 animate-spin text-primary mx-auto" />
-                  </div>
-                ) : (
-                  <div className="grid grid-cols-2 gap-4">
-                    {expandedData.originalContent && (
-                      <div className="space-y-1">
-                        <Label className="text-xs">元データ (A)</Label>
-                        <pre className="p-3 bg-muted rounded text-xs overflow-auto max-h-60 whitespace-pre-wrap font-mono">
-                          {expandedData.originalContent}
-                        </pre>
+              {items.map((entry) => (
+                <div key={entry.id} className="border rounded-xl bg-card shadow-premium-xs hover-lift ml-3">
+                  <div
+                    className="p-4 flex items-center justify-between cursor-pointer hover:bg-accent/30 transition-colors rounded-xl"
+                    onClick={() => handleExpand(entry.id)}
+                  >
+                    <div className="flex items-center gap-4">
+                      <BookOpen className="h-4 w-4 text-muted-foreground" />
+                      <div>
+                        <p className="text-sm font-medium">
+                          {entry.meetingName || meetingType}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          {entry.date || "日付未設定"} ・ 確定版{" "}
+                          {entry.finalLength.toLocaleString()}文字
+                          {entry.originalLength > 0 &&
+                            ` ・ 元データ ${entry.originalLength.toLocaleString()}文字`}
+                          ・ {new Date(entry.createdAt).toLocaleDateString("ja-JP")}
+                          登録
+                        </p>
                       </div>
-                    )}
-                    <div
-                      className={`space-y-1 ${!expandedData.originalContent ? "col-span-2" : ""}`}
-                    >
-                      <Label className="text-xs">確定版 (A&apos;)</Label>
-                      <pre className="p-3 bg-muted rounded text-xs overflow-auto max-h-60 whitespace-pre-wrap font-mono">
-                        {expandedData.finalContent}
-                      </pre>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleDelete(entry.id);
+                        }}
+                      >
+                        <Trash2 className="h-4 w-4 text-destructive" />
+                      </Button>
+                      {expandedId === entry.id ? (
+                        <ChevronUp className="h-4 w-4 text-muted-foreground" />
+                      ) : (
+                        <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                      )}
                     </div>
                   </div>
-                )}
-              </div>
-            )}
-          </div>
-        ))}
+
+                  {expandedId === entry.id && (
+                    <div className="border-t px-4 py-3 space-y-3">
+                      {!expandedData ? (
+                        <div className="text-center py-4">
+                          <Loader2 className="h-5 w-5 animate-spin text-primary mx-auto" />
+                        </div>
+                      ) : (
+                        <div className="grid grid-cols-2 gap-4">
+                          {expandedData.originalContent && (
+                            <div className="space-y-1">
+                              <Label className="text-xs">元データ (A)</Label>
+                              <pre className="p-3 bg-muted rounded text-xs overflow-auto max-h-60 whitespace-pre-wrap font-mono">
+                                {expandedData.originalContent}
+                              </pre>
+                            </div>
+                          )}
+                          <div
+                            className={`space-y-1 ${!expandedData.originalContent ? "col-span-2" : ""}`}
+                          >
+                            <Label className="text-xs">確定版 (A&apos;)</Label>
+                            <pre className="p-3 bg-muted rounded text-xs overflow-auto max-h-60 whitespace-pre-wrap font-mono">
+                              {expandedData.finalContent}
+                            </pre>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          ))}
       </div>
     </div>
   );

@@ -45,7 +45,31 @@ export async function POST(request: NextRequest) {
     const MAX_BLOBS_TO_CHECK = 20;
     if (meetingType) {
       try {
-        const { blobs } = await list({ prefix: "learning/" });
+        // 新形式（会議種別フォルダ）と旧形式（フラット）の両方を取得
+        const [typedResult, flatResult] = await Promise.allSettled([
+          list({ prefix: `learning/${meetingType}/` }),
+          list({ prefix: "learning/" }),
+        ]);
+
+        // 新形式のblobを優先、旧形式のフラットなblob（直下のみ）も追加
+        const typedBlobs =
+          typedResult.status === "fulfilled" ? typedResult.value.blobs : [];
+        const flatBlobs =
+          flatResult.status === "fulfilled"
+            ? flatResult.value.blobs.filter(
+                (b) =>
+                  // learning/{uuid}.json 形式のみ（サブフォルダ内は除外）
+                  b.pathname.split("/").length === 2
+              )
+            : [];
+
+        // 重複排除（URLベース）
+        const seenUrls = new Set(typedBlobs.map((b) => b.url));
+        const allBlobs = [
+          ...typedBlobs,
+          ...flatBlobs.filter((b) => !seenUrls.has(b.url)),
+        ];
+
         const learningPairs: Array<{
           meetingType: string;
           finalContent: string;
@@ -54,7 +78,7 @@ export async function POST(request: NextRequest) {
         }> = [];
 
         // 全blobから用語辞書を集約しつつ、サンプル出力用のデータも収集
-        const blobsToCheck = blobs.slice(0, MAX_BLOBS_TO_CHECK);
+        const blobsToCheck = allBlobs.slice(0, MAX_BLOBS_TO_CHECK);
         for (let i = 0; i < blobsToCheck.length; i += 3) {
           const batch = blobsToCheck.slice(i, i + 3);
           const results = await Promise.allSettled(

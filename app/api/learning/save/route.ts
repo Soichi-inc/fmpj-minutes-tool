@@ -31,9 +31,10 @@ export async function POST(request: NextRequest) {
   }
 
   const id = crypto.randomUUID();
+  const resolvedMeetingType = meetingType || "その他";
   const data = {
     id,
-    meetingType: meetingType || "その他",
+    meetingType: resolvedMeetingType,
     meetingName: meetingName || "",
     date: date || "",
     originalContent: originalContent || "",
@@ -42,10 +43,15 @@ export async function POST(request: NextRequest) {
     createdAt: new Date().toISOString(),
   };
 
-  const blob = await put(`learning/${id}.json`, JSON.stringify(data), {
-    access: "public",
-    contentType: "application/json",
-  });
+  // 会議種別ごとにフォルダ分け: learning/{meetingType}/{id}.json
+  const blob = await put(
+    `learning/${resolvedMeetingType}/${id}.json`,
+    JSON.stringify(data),
+    {
+      access: "public",
+      contentType: "application/json",
+    }
+  );
 
   return NextResponse.json({ id, url: blob.url });
 }
