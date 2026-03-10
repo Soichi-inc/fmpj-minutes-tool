@@ -5,18 +5,14 @@ import { Button } from "@/components/ui/button";
 import { TranscriptInput } from "@/components/transcript-input";
 import { SpeakerMapping } from "@/components/speaker-mapping";
 import { MinutesViewer } from "@/components/minutes-viewer";
-import {
-  replaceSpeakers,
-  filterExcludedSpeakers,
-} from "@/lib/utils/speaker-detector";
 import { parseTranscript } from "@/lib/utils/transcript-parser";
 import { getTemplates, saveMinutesRecord } from "@/lib/store/storage";
-import { FormatTemplate, MeetingInfo, SpeakerEntry } from "@/lib/store/types";
+import { FormatTemplate, MeetingInfo, UtteranceSample } from "@/lib/store/types";
 import { Loader2, StopCircle, Check } from "lucide-react";
 
 type Step = 1 | 2 | 3 | 4;
 
-const STEP_LABELS = ["会議情報入力", "話者特定", "生成中", "結果表示"];
+const STEP_LABELS = ["会議情報入力", "発言者特定", "生成中", "結果表示"];
 
 /**
  * attendeeCategories をパースして { カテゴリ名: string[] } に変換
@@ -38,7 +34,7 @@ function parseCategories(
 }
 
 /**
- * 全カテゴリの出席者名をフラット配列にする（話者マッピング用）
+ * 全カテゴリの出席者名をフラット配列にする
  */
 function flattenAttendees(
   meetingType: string,
@@ -56,11 +52,21 @@ function flattenAttendees(
     }
     return all;
   }
-  // その他: 従来のフリーテキスト
   return freeText
     .split("\n")
     .map((s) => s.trim())
     .filter(Boolean);
+}
+
+/**
+ * 発言者ヒントをフォーマットする
+ */
+function formatSpeakerHints(hints: UtteranceSample[]): string {
+  if (hints.length === 0) return "";
+  const lines = hints.map(
+    (h) => `- ${h.timestamp}付近「${h.text}」→ ${h.speaker}`
+  );
+  return `\n\n■ 発言者の手がかり（ユーザーによる特定）\n${lines.join("\n")}`;
 }
 
 export default function DashboardPage() {
@@ -70,6 +76,8 @@ export default function DashboardPage() {
     meetingName: "",
     meetingType: "",
     date: new Date().toISOString().split("T")[0],
+    startTime: "",
+    endTime: "",
     location: "",
     attendees: "",
     attendeeCategories: {},
@@ -145,6 +153,8 @@ export default function DashboardPage() {
               .join(" "),
             meetingType: meetingInfo.meetingType,
             date: meetingInfo.date,
+            startTime: meetingInfo.startTime,
+            endTime: meetingInfo.endTime,
             location: meetingInfo.location,
             attendees: attendeesList,
             attendeeCategories: parsedCategories,
@@ -192,7 +202,7 @@ export default function DashboardPage() {
             setGeneratedContent(accumulated);
             setStep(4);
             saveRecord(accumulated);
-            return true; // signal done
+            return true;
           }
           try {
             const parsed = JSON.parse(data);
@@ -218,7 +228,6 @@ export default function DashboardPage() {
 
           sseBuffer += decoder.decode(value, { stream: true });
           const lines = sseBuffer.split("\n");
-          // Keep the last (possibly incomplete) line in the buffer
           sseBuffer = lines.pop() || "";
 
           for (const line of lines) {
@@ -230,7 +239,6 @@ export default function DashboardPage() {
           if (isDone) return;
         }
 
-        // Process any remaining data in buffer
         if (sseBuffer.trim()) {
           processSSELine(sseBuffer);
         }
@@ -259,22 +267,11 @@ export default function DashboardPage() {
     [meetingInfo, attendeesList, selectedTemplate]
   );
 
-  const handleSpeakerConfirm = (
-    mapping: Record<string, SpeakerEntry>,
-    excludedLabels: string[]
-  ) => {
-    let cleaned = parseTranscript(meetingInfo.transcript);
-
-    // Filter out excluded speakers first
-    if (excludedLabels.length > 0) {
-      cleaned = filterExcludedSpeakers(cleaned, excludedLabels);
-    }
-
-    // Then replace remaining speaker labels with real names
-    const processed =
-      Object.keys(mapping).length > 0
-        ? replaceSpeakers(cleaned, mapping)
-        : cleaned;
+  const handleUtteranceConfirm = (speakerHints: UtteranceSample[]) => {
+    const cleaned = parseTranscript(meetingInfo.transcript);
+    // 発言者ヒントをtranscriptの末尾に追加
+    const hintsBlock = formatSpeakerHints(speakerHints);
+    const processed = cleaned + hintsBlock;
     handleGenerate(processed);
   };
 
@@ -288,6 +285,8 @@ export default function DashboardPage() {
       meetingName: "",
       meetingType: "",
       date: new Date().toISOString().split("T")[0],
+      startTime: "",
+      endTime: "",
       location: "",
       attendees: "",
       attendeeCategories: {},
@@ -299,6 +298,9 @@ export default function DashboardPage() {
     setStreamingContent("");
     setError("");
   };
+
+  // Step 4 uses wider container
+  const containerClass = step === 4 ? "max-w-7xl" : "max-w-4xl";
 
   return (
     <div className="max-w-6xl mx-auto px-6 py-8">
@@ -350,7 +352,7 @@ export default function DashboardPage() {
       </div>
 
       {/* Step content */}
-      <div className="max-w-4xl mx-auto">
+      <div className={`${containerClass} mx-auto`}>
         {step === 1 && (
           <div className="animate-fade-slide-up">
             <TranscriptInput
@@ -369,7 +371,7 @@ export default function DashboardPage() {
               transcript={meetingInfo.transcript}
               attendees={attendeesList}
               onBack={() => setStep(1)}
-              onConfirm={handleSpeakerConfirm}
+              onConfirm={handleUtteranceConfirm}
             />
           </div>
         )}

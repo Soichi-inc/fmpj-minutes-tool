@@ -1,3 +1,5 @@
+import { UtteranceSample } from "@/lib/store/types";
+
 export interface DetectedSpeaker {
   id: string;
   label: string;
@@ -138,4 +140,64 @@ export function replaceSpeakers(
   }
 
   return result;
+}
+
+const MAX_SAMPLE_TEXT = 120;
+const TARGET_SAMPLES = 7;
+
+/**
+ * 文字起こしから時間的に分散した発言サンプルを抽出する。
+ * 発言者特定ステップで「この発言は誰？」と表示するために使用。
+ */
+export function extractUtteranceSamples(transcript: string): UtteranceSample[] {
+  // タイムスタンプ付きの発言ブロックをパース
+  const blocks: { timestamp: string; text: string; lineIndex: number }[] = [];
+  const lines = transcript.split("\n");
+
+  for (let i = 0; i < lines.length; i++) {
+    const trimmed = lines[i].trim();
+    // "Speaker 1 00:15" or "Speaker 1 01:30:00" パターン
+    const match = trimmed.match(
+      /^(?:Speaker\s*\d+|話者\s*\d+)\s+(\d{1,2}:\d{2}(?::\d{2})?)/i
+    );
+    if (!match) continue;
+
+    const timestamp = match[1];
+
+    // 次の行以降から発言テキストを収集
+    const textLines: string[] = [];
+    for (let j = i + 1; j < lines.length; j++) {
+      const nextLine = lines[j].trim();
+      if (!nextLine) break;
+      if (nextLine.match(/^(?:Speaker\s*\d+|話者\s*\d+)/i)) break;
+      textLines.push(nextLine);
+      if (textLines.join("").length >= MAX_SAMPLE_TEXT) break;
+    }
+
+    const text = textLines.join("").slice(0, MAX_SAMPLE_TEXT);
+    if (text.length > 5) {
+      // 短すぎる発言はスキップ
+      blocks.push({ timestamp, text, lineIndex: i });
+    }
+  }
+
+  if (blocks.length === 0) return [];
+
+  // 時間的に均等分散してTARGET_SAMPLES個を選出
+  const count = Math.min(TARGET_SAMPLES, blocks.length);
+  const step = blocks.length / count;
+  const selected: UtteranceSample[] = [];
+
+  for (let i = 0; i < count; i++) {
+    const idx = Math.floor(i * step);
+    const block = blocks[idx];
+    selected.push({
+      index: i,
+      timestamp: block.timestamp,
+      text: block.text + (block.text.length >= MAX_SAMPLE_TEXT ? "..." : ""),
+      speaker: "",
+    });
+  }
+
+  return selected;
 }

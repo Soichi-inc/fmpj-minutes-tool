@@ -4,6 +4,8 @@ export interface MinutesContext {
   meetingName: string;
   meetingType: string;
   date: string;
+  startTime?: string;
+  endTime?: string;
   location: string;
   attendees: string[];
   /** カテゴリ別出席者（理事会/常任理事会用） */
@@ -16,6 +18,21 @@ export interface MinutesContext {
 }
 
 /**
+ * 日時ブロックを組み立てる。
+ * startTime/endTime があれば "2026-01-16 12:30〜13:30" 形式にする。
+ */
+function buildDateTimeBlock(context: MinutesContext): string {
+  let dateTime = context.date;
+  if (context.startTime) {
+    dateTime += ` ${context.startTime}`;
+    if (context.endTime) {
+      dateTime += `〜${context.endTime}`;
+    }
+  }
+  return dateTime;
+}
+
+/**
  * 出席者・欠席者ブロックを組み立てる。
  * attendeeCategories が提供されている場合はカテゴリ別に出力し、
  * そうでなければ従来のフラット出力にフォールバックする。
@@ -25,13 +42,13 @@ function buildAttendeeBlock(context: MinutesContext): string {
     context.attendeeCategories &&
     Object.keys(context.attendeeCategories).length > 0
   ) {
-    // カテゴリ別出力（空カテゴリはスキップ）
+    // カテゴリ別出力（空カテゴリはスキップ）+ 人数表示
     const lines: string[] = [];
     for (const [category, names] of Object.entries(
       context.attendeeCategories
     )) {
       if (names.length > 0) {
-        lines.push(`${category}：${names.join("、")}`);
+        lines.push(`${category}（${names.length}名）：${names.join("、")}`);
       }
     }
     return lines.join("\n");
@@ -66,6 +83,7 @@ ${lines.join("\n")}`;
 }
 
 export function getSystemPrompt(context: MinutesContext): string {
+  const dateTimeBlock = buildDateTimeBlock(context);
   const attendeeBlock = buildAttendeeBlock(context);
 
   const basePrompt = `あなたは一般社団法人 日本音楽制作者連盟（FMPJ / 音制連）の正式な議事録を作成する専門AIです。
@@ -93,10 +111,14 @@ export function getSystemPrompt(context: MinutesContext): string {
 ${context.meetingName} 議事録
 
 --- 基本情報ブロック ---
-日　　時：${context.date}
+日　　時：${dateTimeBlock}
 場　　所：${context.location}
 ${attendeeBlock}
 議事録作成者：AI自動生成
+
+※【重要】上記の日時・場所・出席者情報はユーザーが事前に入力した確定情報です。
+文字起こしの内容に関わらず、このブロックの情報をそのまま議事録に反映してください。
+これらの情報に【要確認】は絶対に付けないでください。人数・名前はすべて正確です。
 ※全角スペースで項目名の幅を揃える。出席者が多い場合は改行してインデント。
 
 --- 開会宣言 ---
@@ -151,6 +173,15 @@ ${attendeeBlock}
 第3階層: 丸数字        → サブ項目（①②③④⑤⑥⑦⑧...）
 第4階層: ◇（白ひし形） → サブトピック
 第5階層: ・（中黒）     → 箇条書き詳細（全角スペース+中黒で「　・」）
+
+═══════════════════════════════════════════════
+■ 発言者特定について
+═══════════════════════════════════════════════
+文字起こしでは全員が「Speaker 1」となっているため、個別の発言者を区別できません。
+ただし、ユーザーが一部の発言について「この発言は誰のものか」を特定してくれている場合があります。
+その情報は文字起こしデータの末尾に「■ 発言者の手がかり」として付記されています。
+この手がかりを元に、文脈から他の発言者も推測し、「〜が報告した」「〜から提案があった」等の
+三人称記述に適切に反映してください。手がかりがない場合は「報告があった」等の一般的な表現を使用してください。
 
 ═══════════════════════════════════════════════
 ■ 重要な注意事項

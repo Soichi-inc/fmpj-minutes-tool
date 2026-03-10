@@ -193,9 +193,9 @@ export function MinutesViewer({
       </div>
 
       {/* Two column layout */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 xl:grid-cols-4 gap-6">
         {/* Minutes column */}
-        <div className="lg:col-span-2 space-y-3">
+        <div className="xl:col-span-3 space-y-3">
           <div className="flex items-center justify-between">
             <h3 className="font-medium flex items-center gap-2">
               <div className="w-6 h-6 rounded-md bg-primary/10 flex items-center justify-center">

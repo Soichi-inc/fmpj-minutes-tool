@@ -47,12 +47,22 @@ export interface MeetingInfo {
   meetingName: string;
   meetingType: string;
   date: string;
+  startTime: string;
+  endTime: string;
   location: string;
   attendees: string;
   attendeeCategories: Record<string, string>;
   transcript: string;
   templateId: string;
   selectedReferenceIds: string[];
+}
+
+/** 発言サンプル（発言者特定ステップ用） */
+export interface UtteranceSample {
+  index: number;
+  timestamp: string; // "00:15" 形式
+  text: string; // 発言テキスト（80〜120文字）
+  speaker: string; // ユーザーが特定した発言者名（空=未特定）
 }
 
 export const DEFAULT_MEETING_TYPES = [

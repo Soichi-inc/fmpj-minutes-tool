@@ -3,17 +3,16 @@
 import { useState, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import {
   ArrowRight,
   FileAudio,
-  Type,
   Loader2,
   CheckCircle2,
   AlertCircle,
   Upload,
   X,
+  ChevronDown,
 } from "lucide-react";
 import { useDropzone } from "react-dropzone";
 import { upload } from "@vercel/blob/client";
@@ -40,12 +39,12 @@ export function TranscriptInput({
   onChange,
   onNext,
 }: TranscriptInputProps) {
-  const [inputMode, setInputMode] = useState<"text" | "audio">("text");
   const [audioFile, setAudioFile] = useState<File | null>(null);
   const [isTranscribing, setIsTranscribing] = useState(false);
   const [transcriptionStatus, setTranscriptionStatus] = useState("");
   const [transcriptionError, setTranscriptionError] = useState("");
   const [transcriptionDone, setTranscriptionDone] = useState(false);
+  const [showTranscript, setShowTranscript] = useState(false);
 
   const update = (field: keyof MeetingInfo, value: string) => {
     onChange({ ...meetingInfo, [field]: value });
@@ -121,7 +120,6 @@ export function TranscriptInput({
 
         sseBuffer += decoder.decode(value, { stream: true });
         const lines = sseBuffer.split("\n");
-        // Keep the last (possibly incomplete) line in the buffer
         sseBuffer = lines.pop() || "";
 
         for (const line of lines) {
@@ -135,7 +133,6 @@ export function TranscriptInput({
               update("transcript", parsed.transcript);
               setTranscriptionDone(true);
               setTranscriptionStatus("文字起こし完了");
-              setInputMode("text"); // Switch to text tab to show result
             } else if (parsed.status === "error") {
               throw new Error(parsed.error);
             }
@@ -153,7 +150,6 @@ export function TranscriptInput({
             update("transcript", parsed.transcript);
             setTranscriptionDone(true);
             setTranscriptionStatus("文字起こし完了");
-            setInputMode("text");
           } else if (parsed.status === "error") {
             throw new Error(parsed.error);
           }
@@ -200,8 +196,8 @@ export function TranscriptInput({
           </div>
         </div>
 
-        {/* Row 2: Date, Location, Template */}
-        <div className="grid grid-cols-3 gap-4">
+        {/* Row 2: Date, Time, Location */}
+        <div className="grid grid-cols-4 gap-4">
           <div className="space-y-2">
             <Label htmlFor="date">開催日</Label>
             <Input
@@ -209,6 +205,24 @@ export function TranscriptInput({
               type="date"
               value={meetingInfo.date}
               onChange={(e) => update("date", e.target.value)}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="startTime">開始時刻</Label>
+            <Input
+              id="startTime"
+              type="time"
+              value={meetingInfo.startTime}
+              onChange={(e) => update("startTime", e.target.value)}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="endTime">終了時刻</Label>
+            <Input
+              id="endTime"
+              type="time"
+              value={meetingInfo.endTime}
+              onChange={(e) => update("endTime", e.target.value)}
             />
           </div>
           <div className="space-y-2">
@@ -220,6 +234,10 @@ export function TranscriptInput({
               placeholder="例: 連盟会議室"
             />
           </div>
+        </div>
+
+        {/* Row 3: Template */}
+        <div className="grid grid-cols-2 gap-4">
           <div className="space-y-2">
             <Label htmlFor="templateId">フォーマットテンプレート</Label>
             <select
@@ -260,177 +278,146 @@ export function TranscriptInput({
         />
       </div>
 
-      {/* Section: 文字起こしデータ */}
+      {/* Section: 音声文字起こし */}
       <div className="bg-card rounded-xl border shadow-premium-sm p-6 space-y-4">
         <div className="flex items-center gap-2 mb-1">
           <div className="w-1.5 h-1.5 rounded-full bg-primary" />
-          <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">文字起こしデータ</h3>
+          <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">音声文字起こし</h3>
           <span className="text-destructive text-xs">*</span>
         </div>
 
-        {/* Pill tab switcher */}
-        <div className="inline-flex bg-muted rounded-lg p-1 gap-1">
-          <button
-            type="button"
-            onClick={() => setInputMode("text")}
-            className={`flex items-center gap-1.5 px-4 py-2 text-sm rounded-md transition-all press-effect ${
-              inputMode === "text"
-                ? "bg-card text-foreground font-medium shadow-premium-sm"
-                : "text-muted-foreground hover:text-foreground"
+        {/* Dropzone - show when no file selected and not done */}
+        {!audioFile && !isTranscribing && !transcriptionDone && (
+          <div
+            {...getRootProps()}
+            className={`border-2 border-dashed rounded-xl p-8 text-center cursor-pointer transition-all ${
+              isDragActive
+                ? "border-primary bg-primary/5"
+                : "border-input hover:border-primary/50 hover:bg-accent/30"
             }`}
           >
-            <Type className="h-4 w-4" />
-            テキスト貼り付け
-          </button>
-          <button
-            type="button"
-            onClick={() => setInputMode("audio")}
-            className={`flex items-center gap-1.5 px-4 py-2 text-sm rounded-md transition-all press-effect ${
-              inputMode === "audio"
-                ? "bg-card text-foreground font-medium shadow-premium-sm"
-                : "text-muted-foreground hover:text-foreground"
-            }`}
-          >
-            <FileAudio className="h-4 w-4" />
-            音声ファイルから文字起こし
-          </button>
-        </div>
-
-        {/* Text tab */}
-        {inputMode === "text" && (
-          <div className="space-y-2">
-            <Textarea
-              id="transcript"
-              value={meetingInfo.transcript}
-              onChange={(e) => update("transcript", e.target.value)}
-              placeholder={`ここに文字起こしデータを貼り付けてください...\n\n例:\nSpeaker 1 00:00\n本日はよろしくお願いします。\n\nSpeaker 2 00:15\nはい、それでは議事に入ります。`}
-              rows={16}
-              className="font-mono text-sm"
-            />
-            <p className="text-xs text-muted-foreground">
-              PLAUD等のAIボイスレコーダーから出力された文字起こしテキストを貼り付けてください。
+            <input {...getInputProps()} />
+            <div className="w-12 h-12 rounded-xl bg-muted flex items-center justify-center mx-auto mb-3">
+              <Upload className="h-5 w-5 text-muted-foreground" />
+            </div>
+            <p className="text-sm font-medium">
+              音声ファイルをドラッグ＆ドロップ
+            </p>
+            <p className="text-xs text-muted-foreground mt-1">
+              またはクリックして選択（MP3, WAV, M4A, WebM / 最大200MB）
             </p>
           </div>
         )}
 
-        {/* Audio tab */}
-        {inputMode === "audio" && (
-          <div className="space-y-4">
-            {/* Dropzone */}
-            {!audioFile && !isTranscribing && (
-              <div
-                {...getRootProps()}
-                className={`border-2 border-dashed rounded-xl p-8 text-center cursor-pointer transition-all ${
-                  isDragActive
-                    ? "border-primary bg-primary/5"
-                    : "border-input hover:border-primary/50 hover:bg-accent/30"
-                }`}
+        {/* File selected */}
+        {audioFile && !isTranscribing && !transcriptionDone && (
+          <div className="border rounded-lg p-4 space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <FileAudio className="h-8 w-8 text-primary" />
+                <div>
+                  <p className="text-sm font-medium">{audioFile.name}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {(audioFile.size / 1024 / 1024).toFixed(1)} MB
+                  </p>
+                </div>
+              </div>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  setAudioFile(null);
+                  setTranscriptionError("");
+                }}
               >
-                <input {...getInputProps()} />
-                <div className="w-12 h-12 rounded-xl bg-muted flex items-center justify-center mx-auto mb-3">
-                  <Upload className="h-5 w-5 text-muted-foreground" />
-                </div>
-                <p className="text-sm font-medium">
-                  音声ファイルをドラッグ＆ドロップ
-                </p>
-                <p className="text-xs text-muted-foreground mt-1">
-                  またはクリックして選択（MP3, WAV, M4A, WebM / 最大200MB）
-                </p>
-              </div>
-            )}
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+            <Button onClick={handleTranscribe} className="w-full">
+              <FileAudio className="mr-2 h-4 w-4" />
+              文字起こしを開始
+            </Button>
+          </div>
+        )}
 
-            {/* File selected */}
-            {audioFile && !isTranscribing && !transcriptionDone && (
-              <div className="border rounded-lg p-4 space-y-3">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <FileAudio className="h-8 w-8 text-primary" />
-                    <div>
-                      <p className="text-sm font-medium">{audioFile.name}</p>
-                      <p className="text-xs text-muted-foreground">
-                        {(audioFile.size / 1024 / 1024).toFixed(1)} MB
-                      </p>
-                    </div>
-                  </div>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => {
-                      setAudioFile(null);
-                      setTranscriptionError("");
-                    }}
-                  >
-                    <X className="h-4 w-4" />
-                  </Button>
-                </div>
-                <Button onClick={handleTranscribe} className="w-full">
-                  <FileAudio className="mr-2 h-4 w-4" />
-                  文字起こしを開始
-                </Button>
-              </div>
-            )}
+        {/* Transcribing progress */}
+        {isTranscribing && (
+          <div className="border rounded-lg p-6 text-center space-y-3">
+            <Loader2 className="h-8 w-8 animate-spin text-primary mx-auto" />
+            <p className="text-sm font-medium">{transcriptionStatus}</p>
+            <p className="text-xs text-muted-foreground">
+              {audioFile?.name}
+            </p>
+          </div>
+        )}
 
-            {/* Transcribing progress */}
-            {isTranscribing && (
-              <div className="border rounded-lg p-6 text-center space-y-3">
-                <Loader2 className="h-8 w-8 animate-spin text-primary mx-auto" />
-                <p className="text-sm font-medium">{transcriptionStatus}</p>
-                <p className="text-xs text-muted-foreground">
-                  {audioFile?.name}
+        {/* Transcription done */}
+        {transcriptionDone && !isTranscribing && (
+          <div className="space-y-3">
+            <div className="border rounded-lg p-4 bg-green-50 flex items-center gap-3">
+              <CheckCircle2 className="h-5 w-5 text-green-600 shrink-0" />
+              <div className="flex-1">
+                <p className="text-sm font-medium text-green-800">
+                  文字起こし完了
+                </p>
+                <p className="text-xs text-green-600">
+                  {meetingInfo.transcript.split("\n").filter(l => l.trim()).length} 行の文字起こしデータ
                 </p>
               </div>
-            )}
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  setAudioFile(null);
+                  setTranscriptionDone(false);
+                  setTranscriptionStatus("");
+                }}
+              >
+                別のファイル
+              </Button>
+            </div>
 
-            {/* Transcription done */}
-            {transcriptionDone && !isTranscribing && (
-              <div className="border rounded-lg p-4 bg-green-50 flex items-center gap-3">
-                <CheckCircle2 className="h-5 w-5 text-green-600 shrink-0" />
-                <div className="flex-1">
-                  <p className="text-sm font-medium text-green-800">
-                    文字起こし完了
-                  </p>
-                  <p className="text-xs text-green-600">
-                    テキストタブで結果を確認・編集できます
-                  </p>
-                </div>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => {
-                    setAudioFile(null);
-                    setTranscriptionDone(false);
-                    setTranscriptionStatus("");
-                  }}
-                >
-                  別のファイル
-                </Button>
+            {/* Collapsible transcript preview */}
+            <button
+              type="button"
+              onClick={() => setShowTranscript(!showTranscript)}
+              className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
+            >
+              <ChevronDown className={`h-3.5 w-3.5 transition-transform ${showTranscript ? "rotate-180" : ""}`} />
+              文字起こし結果を{showTranscript ? "閉じる" : "確認する"}
+            </button>
+            {showTranscript && (
+              <div className="border rounded-lg p-4 max-h-64 overflow-y-auto">
+                <pre className="text-xs font-mono whitespace-pre-wrap text-muted-foreground">
+                  {meetingInfo.transcript}
+                </pre>
               </div>
             )}
+          </div>
+        )}
 
-            {/* Error */}
-            {transcriptionError && (
-              <div className="border rounded-lg p-4 bg-destructive/10 flex items-start gap-3">
-                <AlertCircle className="h-5 w-5 text-destructive shrink-0 mt-0.5" />
-                <div className="flex-1">
-                  <p className="text-sm font-medium text-destructive">
-                    エラー
-                  </p>
-                  <p className="text-xs text-destructive/80">
-                    {transcriptionError}
-                  </p>
-                </div>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => {
-                    setAudioFile(null);
-                    setTranscriptionError("");
-                  }}
-                >
-                  やり直す
-                </Button>
-              </div>
-            )}
+        {/* Error */}
+        {transcriptionError && (
+          <div className="border rounded-lg p-4 bg-destructive/10 flex items-start gap-3">
+            <AlertCircle className="h-5 w-5 text-destructive shrink-0 mt-0.5" />
+            <div className="flex-1">
+              <p className="text-sm font-medium text-destructive">
+                エラー
+              </p>
+              <p className="text-xs text-destructive/80">
+                {transcriptionError}
+              </p>
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                setAudioFile(null);
+                setTranscriptionError("");
+              }}
+            >
+              やり直す
+            </Button>
           </div>
         )}
       </div>
@@ -441,7 +428,7 @@ export function TranscriptInput({
           disabled={!canProceed}
           className="bg-gradient-primary hover:opacity-90 press-effect shadow-premium-md"
         >
-          次へ：話者を特定する
+          次へ：発言者を特定する
           <ArrowRight className="ml-2 h-4 w-4" />
         </Button>
       </div>
