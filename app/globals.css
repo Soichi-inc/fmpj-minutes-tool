@@ -194,3 +194,9 @@
   .shadow-premium-lg { box-shadow: var(--shadow-lg); }
   .shadow-premium-xl { box-shadow: var(--shadow-xl); }
 }
+
+/* ── Minutes content styling ── */
+.minutes-content div {
+  font-feature-settings: "palt" 1;
+  tab-size: 4;
+}

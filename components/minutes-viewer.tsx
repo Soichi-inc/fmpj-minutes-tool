@@ -221,10 +221,8 @@ export function MinutesViewer({
               )}
             </Button>
           </div>
-          <div className="border rounded-xl p-6 bg-card shadow-premium-xs prose prose-sm max-w-none prose-headings:text-foreground prose-p:text-foreground prose-li:text-foreground prose-strong:text-foreground">
-            <ReactMarkdown remarkPlugins={[remarkGfm]}>
-              {minutesContent}
-            </ReactMarkdown>
+          <div className="border rounded-xl p-6 bg-card shadow-premium-xs minutes-content">
+            <div className="text-sm leading-relaxed whitespace-pre-wrap break-words text-foreground">{minutesContent}</div>
           </div>
         </div>
 
