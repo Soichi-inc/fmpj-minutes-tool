@@ -7,11 +7,72 @@ import {
   WHISPER_CONCURRENCY,
 } from "@/lib/audio-constants";
 import { verifyAuth } from "@/lib/auth";
+import { execFile } from "child_process";
+import { promisify } from "util";
+import { writeFile, readFile, unlink } from "fs/promises";
+import { tmpdir } from "os";
+import { join } from "path";
+import ffmpegPath from "ffmpeg-static";
+
+const execFileAsync = promisify(execFile);
 
 export const runtime = "nodejs";
 export const maxDuration = 300; // Vercel Pro max (5 min function timeout)
 
 const WHISPER_API_LIMIT = WHISPER_CHUNK_SIZE;
+
+/**
+ * mp3以外の音声ファイルをffmpegでmp3に変換する。
+ * mp3とwavの場合はそのまま返す。
+ */
+async function convertToMp3(
+  buffer: ArrayBuffer,
+  fileName: string
+): Promise<{ buffer: ArrayBuffer; fileName: string }> {
+  const ext = (fileName || "").split(".").pop()?.toLowerCase();
+
+  // mp3とwavはそのまま（wavは既存のsplitWavで対応済み）
+  if (ext === "mp3" || ext === "wav" || ext === "mpga" || ext === "mpeg") {
+    return { buffer, fileName };
+  }
+
+  // ffmpegでmp3に変換
+  const id = Date.now() + "_" + Math.random().toString(36).slice(2);
+  const inputPath = join(tmpdir(), `input_${id}.${ext}`);
+  const outputPath = join(tmpdir(), `output_${id}.mp3`);
+
+  try {
+    await writeFile(inputPath, Buffer.from(buffer));
+
+    if (!ffmpegPath) throw new Error("ffmpeg-static path not found");
+
+    await execFileAsync(ffmpegPath, [
+      "-i", inputPath,
+      "-vn",                // 映像トラックを除外
+      "-acodec", "libmp3lame",
+      "-ab", "128k",        // ビットレート
+      "-ar", "16000",       // サンプルレート（Whisperに最適）
+      "-ac", "1",           // モノラル（Whisperに最適）
+      "-y",                 // 上書き
+      outputPath,
+    ], { timeout: 120000 }); // 2分タイムアウト
+
+    const mp3Buffer = await readFile(outputPath);
+    const newFileName = fileName.replace(/\.[^.]+$/, ".mp3");
+
+    return {
+      buffer: mp3Buffer.buffer.slice(
+        mp3Buffer.byteOffset,
+        mp3Buffer.byteOffset + mp3Buffer.byteLength
+      ),
+      fileName: newFileName,
+    };
+  } finally {
+    // 一時ファイル削除（エラーでも）
+    await unlink(inputPath).catch(() => {});
+    await unlink(outputPath).catch(() => {});
+  }
+}
 
 export async function POST(request: NextRequest) {
   if (!(await verifyAuth())) {
@@ -46,16 +107,23 @@ export async function POST(request: NextRequest) {
           throw new Error("音声ファイルの取得に失敗しました");
         }
         const audioBuffer = await audioResponse.arrayBuffer();
-        const fileSizeMB = (audioBuffer.byteLength / 1024 / 1024).toFixed(1);
 
-        if (audioBuffer.byteLength <= WHISPER_API_LIMIT) {
+        // mp3/wav以外はffmpegでmp3に変換（m4a, mp4, webm等の互換性問題を解決）
+        send({ status: "converting", message: "音声フォーマットを変換中..." });
+        const converted = await convertToMp3(audioBuffer, fileName);
+        const processBuffer = converted.buffer;
+        const processFileName = converted.fileName;
+
+        const fileSizeMB = (processBuffer.byteLength / 1024 / 1024).toFixed(1);
+
+        if (processBuffer.byteLength <= WHISPER_API_LIMIT) {
           // ── Single chunk ──
           send({
             status: "transcribing",
             message: `文字起こし中...（${fileSizeMB}MB）`,
           });
 
-          const result = await transcribeBuffer(audioBuffer, fileName);
+          const result = await transcribeBuffer(processBuffer, processFileName);
 
           if (!result.text.trim()) {
             throw new Error(
@@ -76,8 +144,8 @@ export async function POST(request: NextRequest) {
           send({ status: "done", transcript: result.text });
         } else {
           // ── Multi-chunk: split → parallel transcribe → merge ──
-          const ext = (fileName || "").split(".").pop()?.toLowerCase();
-          const chunks = splitAudioBuffer(audioBuffer, ext);
+          const ext = (processFileName || "").split(".").pop()?.toLowerCase();
+          const chunks = splitAudioBuffer(processBuffer, ext);
           const totalChunks = chunks.length;
 
           send({
@@ -92,7 +160,7 @@ export async function POST(request: NextRequest) {
           const processChunk = async (index: number) => {
             const result = await transcribeBuffer(
               chunks[index],
-              getChunkFileName(fileName, index)
+              getChunkFileName(processFileName, index)
             );
             results[index] = result;
             completed++;
