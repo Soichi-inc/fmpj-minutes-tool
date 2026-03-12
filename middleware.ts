@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { COOKIE_NAME, verifySessionToken } from "@/lib/auth";
 
-export function middleware(request: NextRequest) {
+export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   // Allow access to login page and API routes
@@ -16,7 +16,7 @@ export function middleware(request: NextRequest) {
   if (
     !authCookie ||
     !secret ||
-    !verifySessionToken(authCookie.value, secret)
+    !(await verifySessionToken(authCookie.value, secret))
   ) {
     return NextResponse.redirect(new URL("/", request.url));
   }

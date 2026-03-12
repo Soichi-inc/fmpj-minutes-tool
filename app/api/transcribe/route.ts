@@ -291,7 +291,11 @@ async function transcribeBuffer(
   fileName: string
 ): Promise<ChunkResult> {
   const contentType = getContentType(fileName);
-  const file = new File([buffer], fileName || "audio.mp3", {
+  let safeFileName = fileName || "audio.mp3";
+  if (safeFileName.toLowerCase().endsWith(".m4a")) {
+    safeFileName = safeFileName.replace(/\.m4a$/i, ".mp4");
+  }
+  const file = new File([buffer], safeFileName, {
     type: contentType,
   });
 
@@ -329,7 +333,8 @@ function getChunkFileName(
   index: number
 ): string {
   if (!fileName) return `chunk_${index}.mp3`;
-  const ext = fileName.split(".").pop() || "mp3";
+  let ext = fileName.split(".").pop() || "mp3";
+  if (ext.toLowerCase() === "m4a") ext = "mp4";
   const base = fileName.replace(/\.[^.]+$/, "");
   return `${base}_chunk${index}.${ext}`;
 }

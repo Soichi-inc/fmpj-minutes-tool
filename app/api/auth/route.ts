@@ -22,7 +22,7 @@ export async function POST(request: NextRequest) {
     }
 
     // HMAC署名付きセッショントークンを生成
-    const token = createSessionToken(appPassword);
+    const token = await createSessionToken(appPassword);
 
     const cookieStore = await cookies();
     cookieStore.set(COOKIE_NAME, token, {

@@ -15,6 +15,7 @@ export async function POST(request: NextRequest) {
       request,
       onBeforeGenerateToken: async () => {
         return {
+          addRandomSuffix: true,
           allowedContentTypes: [
             "audio/mpeg",
             "audio/mp4",
@@ -34,6 +35,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json(jsonResponse);
   } catch (error) {
+    console.error("[audio/upload] Error:", error);
     const message =
       error instanceof Error ? error.message : "アップロードに失敗しました";
     return NextResponse.json({ error: message }, { status: 400 });
